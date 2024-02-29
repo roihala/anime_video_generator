@@ -19,7 +19,7 @@ def main(channel_name: str, topic: str, voice_name: str, destination_dir: str):
         log.info(f"new destination directory created: {destination_dir}")
 
     log.info("STEP 1 - script")
-    script, captions, _ = ScriptGenerator().generate(
+    script = ScriptGenerator().generate(
         channel_name,
         topic,
         is_verbose_print = True
@@ -39,7 +39,7 @@ def main(channel_name: str, topic: str, voice_name: str, destination_dir: str):
     #     destination_dir = destination_dir,
     #     is_crop_to_ratio_16_9 = True
     # )
-    images_path_list = [r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\007.ai", r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\028.tif", r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\011.tif", r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\018.tif"]
+    images_path_list = [r"C:\Users\RoiHa\PycharmProjects\anime_video_generator\demo_output\007.jpg", r"C:\Users\RoiHa\PycharmProjects\anime_video_generator\demo_output\011.jpg", r"C:\Users\RoiHa\PycharmProjects\anime_video_generator\demo_output\018.jpg", r"C:\Users\RoiHa\PycharmProjects\anime_video_generator\demo_output\028.jpg"]
     log.info("STEP 4 - video")
     VideoMaker().create_video(
         images_list = images_path_list,
