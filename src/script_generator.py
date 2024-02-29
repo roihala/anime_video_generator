@@ -42,7 +42,7 @@ You like writing populistic scripts for the average joe to enjoy.
     def _make_script(self, topic: str, channel_name: str) -> str:
         return self._session.ask(
             f"""
-Write a youtube video script according to the following specifications:
+Write a 100 words youtube video script according to the following specifications:
 
 - Script topic to write on: {topic}
 - The Script section must start with: Hey there!! And welcome back. Today! on "{channel_name}", we are going to talk about: <SCRIPT TOPIC HERE>.

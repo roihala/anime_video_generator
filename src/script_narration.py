@@ -3,7 +3,7 @@
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
-
+import os
 import random
 from io import BytesIO
 from pydub import AudioSegment
@@ -34,5 +34,12 @@ class ScriptNarration:
 
     # private methods
     def _convert_audio_bytes_to_audio_object(self, audio_bytes: bytes):
+        # # Define the path where you want to save the audio file
+        # file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp', 'temp_audio.mp3')
+        #
+        # # Open the file in binary write mode and write the audio bytes to it
+        # with open(file_path, 'wb') as audio_file:
+        #     audio_file.write(audio_bytes)
+        #     return AudioSegment.from_file(audio_file)
         audio_file = BytesIO(audio_bytes)
         return AudioSegment.from_file(audio_file)

@@ -3,17 +3,20 @@
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
+import os
 
 import openai
+from openai import OpenAI
+
 
 class ChatGPTSession:
-    # private properties
-    _chat_session = openai.ChatCompletion()
-    _chat_log = []
-
-    # init
     def __init__(self, system_message: str):
         self._set_system_message(system_message)
+        # new
+        self._client = OpenAI(
+            api_key=os.environ['OPENAI_API_KEY'],  # this is also the default, it can be omitted
+        )
+        self._chat_log = []
 
     # api methods
     def ask(self, question: str) -> str:
@@ -21,11 +24,9 @@ class ChatGPTSession:
             'role': 'user',
             'content': question
         })
-        response = self._chat_session.create(
-            model = 'gpt-3.5-turbo',
-            messages = self._chat_log
-        )
-        answer = response.choices[0]['message']['content']
+        self._completion = self._client.chat.completions.create(model='gpt-3.5-turbo', messages=self._chat_log)
+        answer = self._completion.choices[0].message.content
+
         self._chat_log.append({
             'role': 'assistant',
             'content': answer

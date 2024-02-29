@@ -34,15 +34,15 @@ def main(channel_name: str, topic: str, voice_name: str, destination_dir: str):
     )
 
     log.info("STEP 3 - captions")
-    generated_images_path_list = CaptionsGenerator().generate_captions(
-        captions_string = captions,
-        destination_dir = destination_dir,
-        is_crop_to_ratio_16_9 = True
-    )
-
+    # generated_images_path_list = CaptionsGenerator().generate_captions(
+    #     captions_string = captions,
+    #     destination_dir = destination_dir,
+    #     is_crop_to_ratio_16_9 = True
+    # )
+    images_path_list = [r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\007.ai", r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\028.tif", r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\011.tif", r"C:\Users\RoiHa\Downloads\chrome_downloads\Mirotvorcy_05-20230704T181617Z-003\Mirotvorcy_05\018.tif"]
     log.info("STEP 4 - video")
     VideoMaker().create_video(
-        images_list = generated_images_path_list,
+        images_list = images_path_list,
         mp3_audio_file_path = mp3_file_destination_with_extension,
         mp4_file_destination_with_extension = path.join(destination_dir, "video.mp4"),
         is_duplicate_images_count_to_improve_smoothness = True
