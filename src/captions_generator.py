@@ -6,7 +6,6 @@
 
 from os import path
 from PIL import Image
-from dalle2_image_generator import Dalle2ImageGenerator
 
 # TODO - speed this up by making all requests in parallel
 
@@ -23,7 +22,9 @@ class CaptionsGenerator:
         # returns a list of paths to the generated images
         list_of_created_image_files: list[str] = []
         captions_list = self._convert_string_into_list(captions_string)
-        image_generator = Dalle2ImageGenerator()
+
+        # TODO: why captions generator had to generate an image?
+        # image_generator = Dalle2ImageGenerator()
         for index, caption in enumerate(captions_list):
             image_file_path = path.join(destination_dir, f"caption_{index}.jpg")
             try:

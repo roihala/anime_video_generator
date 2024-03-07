@@ -3,9 +3,11 @@
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
+import os
 
 from chat_gpt_session import ChatGPTSession
 from log import log
+import os
 
 # TODO - write the output strings to files, destination will be provided from the outside for each file
 
@@ -15,16 +17,9 @@ class ScriptGenerator:
         self._session = self._prepare_session()
 
     # api methods
-    def generate(
-        self,
-        channel_name: str,
-        topic: str,
-        is_verbose_print: bool = False
-    ) -> (str, str, str):
-        # script = self._make_script(topic, channel_name)
-        # captions = self._make_captions()
+    def generate(self) -> str:
         description = self._make_description()
-        if is_verbose_print:
+        if os.getenv('DEBUG'):
             log.info(f"DESCRIPTION:\n{description}")
         return description
 

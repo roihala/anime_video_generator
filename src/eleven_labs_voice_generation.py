@@ -3,6 +3,7 @@
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
+import os
 
 from elevenlabs import get_api_key, generate, voices, save, set_api_key
 
@@ -12,8 +13,7 @@ class ElevenLabsVoiceGeneration:
         pass
 
     def __init__(self):
-        # TODO: api key
-        set_api_key('3e3b2d2de8a783682b8d7e65311daf6e')
+        set_api_key(os.getenv('ELEVENLABS_API_KEY'))
         if get_api_key() is None:
             raise self.MissingAPIKey()
         voices()  # load all available voice from remote, incliding private generated onces

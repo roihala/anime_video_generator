@@ -19,7 +19,7 @@ class ScriptNarration:
         self,
         voice_name: str,
         full_script: str,
-        mp3_file_destination_with_extension: str
+        voice_file_path: str
     ):
         voice_generator = ElevenLabsVoiceGeneration()
         paragraphs = full_script.split('\n\n')
@@ -30,7 +30,7 @@ class ScriptNarration:
             audio_object = self._convert_audio_bytes_to_audio_object(audio_bytes)
             total_audio += audio_object + AudioSegment.silent(duration=random_silence)
             # TODO - randomly add audio between paragraphs: "hmmm", "ahhh", "so..." (premade to save money?)
-        total_audio.export(mp3_file_destination_with_extension, format = "mp3")
+        total_audio.export(voice_file_path, format ="mp3")
 
     # private methods
     def _convert_audio_bytes_to_audio_object(self, audio_bytes: bytes):

@@ -14,7 +14,7 @@ class ChatGPTSession:
         self._set_system_message(system_message)
         # new
         self._client = OpenAI(
-            api_key=os.environ['OPENAI_API_KEY'],  # this is also the default, it can be omitted
+            api_key=os.getenv('OPENAI_API_KEY'),  # this is also the default, it can be omitted
         )
         self._chat_log = []
 

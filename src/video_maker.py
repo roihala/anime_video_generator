@@ -3,45 +3,46 @@
 #
 #  Created by Eldar Eliav on 2023/05/13.
 #
+import os
 
 from log import log
-from os import path, system
 from pydub import AudioSegment
 
+
+OUTPUT_FILE_NAME = "video.mp4"
+MAKER_SCRIPT = 'maker.rb'
+TOOLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tools')
+
+
 class VideoMaker:
-    def create_video(
+    def make_video(
         self,
-        images_list: list[str],
-        mp3_audio_file_path: str,
-        mp4_file_destination_with_extension: str,
-        is_duplicate_images_count_to_improve_smoothness: bool
+        video_dir: str,
+        voice_file_path: str,
     ):
         log.info("generating video...")
 
-        tools_dir = "./tools"  # TODO - this path is problematice, because it cares from where the main.py is called
-        maker_script = "maker.rb"
+        file_destination = os.path.join(video_dir, 'video', OUTPUT_FILE_NAME)
+        images_dir = os.path.join(video_dir, 'images')
+        images_list = [os.path.join(images_dir, f) for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f))]
 
-        audio_duration_in_seconds = self._get_audio_duration_in_seconds(mp3_audio_file_path)
-
-        # if is_duplicate_images_count_to_improve_smoothness:
-        #     images_list = images_list * 2
-
-        slide_duration = self._calculate_slide_daration_in_seconds(
-            audio_duration_in_seconds = audio_duration_in_seconds,
+        slide_duration = self._calculate_slide_daration(
+            audio_duration= self._get_audio_duration(voice_file_path),
             number_of_images = len(images_list)
         )
 
         images_string = " ".join(images_list)
 
-        cmd = f'ruby {path.join(tools_dir, maker_script)} {images_string} {mp4_file_destination_with_extension} --size=1280x800 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.1 --zoom-direction=top-left-in --scale-mode=pad --fps=120 --audio={mp3_audio_file_path} -y'
-        system(cmd)
+        cmd = f'ruby {os.path.join(TOOLS_DIR, MAKER_SCRIPT)} {images_string} {file_destination} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --fps=120 --audio={voice_file_path} -y'
+        os.system(cmd)
 
-        log.info(f"video generated: {mp4_file_destination_with_extension}")
+        # TODO: how to tell if it was successful?
+        log.info(f"video generated : {file_destination}")
 
     # private methods
-    def _calculate_slide_daration_in_seconds(self, audio_duration_in_seconds: int, number_of_images: int) -> float:
-        return audio_duration_in_seconds / number_of_images
+    def _calculate_slide_daration(self, audio_duration: int, number_of_images: int) -> float:
+        return audio_duration / number_of_images
 
-    def _get_audio_duration_in_seconds(self, mp3_audio_file_path: str) -> int:
+    def _get_audio_duration(self, mp3_audio_file_path: str) -> int:
         audio_object = AudioSegment.from_file(mp3_audio_file_path, format="mp3")
         return audio_object.duration_seconds

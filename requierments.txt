@@ -1,3 +1,5 @@
 openai
 pydub
 elevenlabs
+moviepy
+pillow
