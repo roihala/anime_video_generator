@@ -3,3 +3,4 @@ pydub
 elevenlabs
 moviepy
 pillow
+speech_recognition
