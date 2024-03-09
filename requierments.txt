@@ -4,3 +4,7 @@ elevenlabs
 moviepy
 pillow
 speech_recognition
+git+https://github.com/MTG/freesound-python
+requests requests_oauthlib
+pyloudnorm
+soundfile

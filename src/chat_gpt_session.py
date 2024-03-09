@@ -4,17 +4,20 @@
 #  Created by Eldar Eliav on 2023/05/11.
 #
 import os
+from dotenv import load_dotenv
 
 import openai
 from openai import OpenAI
+load_dotenv()  # This loads the variables from '.env' into the environment
 
 
 class ChatGPTSession:
     def __init__(self, system_message: str):
         self._set_system_message(system_message)
         # new
+        # TODO: api key
         self._client = OpenAI(
-            api_key=os.getenv('OPENAI_API_KEY'),  # this is also the default, it can be omitted
+            api_key='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',  # this is also the default, it can be omitted
         )
         self._chat_log = []
 
