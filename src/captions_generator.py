@@ -3,31 +3,52 @@
 #
 #  Created by Eldar Eliav on 2023/05/13.
 #
+import os
+from typing import Iterator, TextIO
 
+import whisper
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-import speech_recognition as sr
+from moviepy.video.tools.subtitles import SubtitlesClip
 
 
 class CaptionsGenerator:
+    def __init__(self, voice_file_path, srt_file_path):
+        self.voice_file_path = voice_file_path
+        self.srt_file_path = srt_file_path
+
     # api memthods
     def generate_captions(self) -> bool:
-        # returns a list of paths to the generated images
-        video = VideoFileClip(r"C:\Users\RoiHa\PycharmProjects\anime_video_generator\temp\video.mp4")
-        caption = TextClip("Your Caption Here", fontsize=24, color='white', font="Arial")
-        caption = caption.set_pos('bottom').set_duration(10)
-        final_video = CompositeVideoClip([video, caption.set_start(3)])  # Caption starts at 3 seconds
-        # final_video.write_videofile(r"C:\Users\RoiHa\PycharmProjects\anime_video_generator\temp\video_captionated.mp4")
+        model = whisper.load_model('base')
+        transcription = model.transcribe(self.voice_file_path)
 
-        # Load your audio file
-        r = sr.Recognizer()
-        with sr.AudioFile(r'C:\Users\RoiHa\PycharmProjects\anime_video_generator\temp\temp_audio.mp3') as source:
-            audio = r.record(source)
+        with open(self.srt_file_path, "w", encoding="utf-8") as srt:
+            self.write_srt(transcription["segments"], file=srt)
 
-        # Try recognizing the audio (using Google's Web API in this example)
-        try:
-            transcription = r.recognize_google(audio)
-            print(transcription)
-        except sr.UnknownValueError:
-            print("Google Speech Recognition could not understand audio")
-        except sr.RequestError as e:
-            print(f"Could not request results from Google Speech Recognition service; {e}")
+    @classmethod
+    def write_srt(cls, transcript: Iterator[dict], file: TextIO):
+        for i, segment in enumerate(transcript, start=1):
+            print(
+                f"{i}\n"
+                f"{cls.format_timestamp(segment['start'], always_include_hours=True)} --> "
+                f"{cls.format_timestamp(segment['end'], always_include_hours=True)}\n"
+                f"{segment['text'].strip().replace('-->', '->')}\n",
+                file=file,
+                flush=True,
+            )
+
+    @classmethod
+    def format_timestamp(cls, seconds: float, always_include_hours: bool = False):
+        assert seconds >= 0, "non-negative timestamp expected"
+        milliseconds = round(seconds * 1000.0)
+
+        hours = milliseconds // 3_600_000
+        milliseconds -= hours * 3_600_000
+
+        minutes = milliseconds // 60_000
+        milliseconds -= minutes * 60_000
+
+        seconds = milliseconds // 1_000
+        milliseconds -= seconds * 1_000
+
+        hours_marker = f"{hours:02d}:" if always_include_hours or hours > 0 else ""
+        return f"{hours_marker}{minutes:02d}:{seconds:02d},{milliseconds:03d}"

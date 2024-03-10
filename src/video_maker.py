@@ -12,21 +12,21 @@ import soundfile as sf
 import pyloudnorm as pyln
 from src.animax_exception import AnimaxException, BacgkgroundMusicException
 
-OUTPUT_FILE_NAME = "video.mp4"
 MAKER_SCRIPT_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'maker.rb')
 AUDIO_LIBRARY = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'background_music')
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
 
 class VideoMaker:
-    def __init__(self, video_dir: str, voice_file_path: str,):
+    def __init__(self, video_dir: str, voice_file_path: str, video_file_path: str, srt_file_path: str):
         self.video_dir = video_dir
         self.voice_file_path = voice_file_path
+        self.video_file_path = video_file_path
+        self.srt_file_path = srt_file_path
 
     def make_video(self):
         log.info("generating video...")
 
-        file_destination = os.path.join(self.video_dir, 'video', OUTPUT_FILE_NAME)
         images_dir = os.path.join(self.video_dir, 'images')
         images_list = [os.path.join(images_dir, f) for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f))]
         video_duration = self._get_audio_duration(self.voice_file_path)
@@ -37,11 +37,13 @@ class VideoMaker:
         )
 
         images_string = " ".join(images_list)
-        cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {file_destination} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --fps=120 --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} -y'
+        cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --fps=120 --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} --subtitles={self.srt_file_path} -y'
+        # cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --fps=120 --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} -y'
+        log.info(f'ruby command {cmd}')
         os.system(cmd)
 
         # TODO: how to tell if it was successful?
-        log.info(f"video generated : {file_destination}")
+        log.info(f"video generated : {self.video_file_path}")
 
     # private methods
     def _calculate_slide_daration(self, audio_duration: int, number_of_images: int) -> float:

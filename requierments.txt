@@ -8,3 +8,5 @@ git+https://github.com/MTG/freesound-python
 requests requests_oauthlib
 pyloudnorm
 soundfile
+whisper
+stable-ts==1.1.1b0
