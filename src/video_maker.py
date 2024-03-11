@@ -12,8 +12,12 @@ import soundfile as sf
 import pyloudnorm as pyln
 from src.animax_exception import AnimaxException, BacgkgroundMusicException
 
-MAKER_SCRIPT_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'maker.rb')
+
+RUBY_DIR_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'ruby')
 AUDIO_LIBRARY = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'background_music')
+
+MAKER_SCRIPT_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'maker.rb')
+SHARP_CUT_SCRIPT_PATH = os.path.join(RUBY_DIR_PATH, 'sharp_cut.rb')
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
 
@@ -36,14 +40,27 @@ class VideoMaker:
             number_of_images = len(images_list)
         )
 
+        # self.sharp_cut(images_list[0:2])
+        # return
         images_string = " ".join(images_list)
-        cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --fps=120 --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} --subtitles={self.srt_file_path} -y'
-        # cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --fps=120 --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} -y'
+
+        cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} -y'
+
         log.info(f'ruby command {cmd}')
         os.system(cmd)
 
         # TODO: how to tell if it was successful?
         log.info(f"video generated : {self.video_file_path}")
+
+    def sharp_cut(self, images):
+        images_string = " ".join(images)
+        transition_file_path = os.path.join(self.video_dir, 'sharp_cut.mp4')
+        cmd = f'ruby {SHARP_CUT_SCRIPT_PATH} {images_string} {transition_file_path}'
+
+        log.info(f'ruby command {cmd}')
+        os.system(cmd)
+        log.info(f"video generated : {self.video_file_path}")
+
 
     # private methods
     def _calculate_slide_daration(self, audio_duration: int, number_of_images: int) -> float:

@@ -25,9 +25,11 @@ options.rescale = 10
 options.dump_filter_graph = false
 options.loopable = false
 options.audio_narration = nil
-options.subtitles = nil
 options.audio_music = nil
 options.audio_music_volume_adjustment = 0
+
+# TODO: always loopable, durations of course, concatenate, remove subtitles
+
 OptionParser.new do |opts|
   opts.banner = "Usage: #{$PROGRAM_NAME} [options] input1 [input2...] output"
   opts.on("-h", "--help", "Prints this help") do
@@ -48,9 +50,6 @@ OptionParser.new do |opts|
   opts.on("--fps=[FPS]", Integer, "Output framerate (frames per second) (default: #{options.fps})") do |n|
     options.fps = n
   end
-  # opts.on("--zoom-direction=[DIRECTION]", ["random"] + ["top", "center", "bottom"].product(["left", "center", "right"], ["in", "out"]).map {|m| m.join("-")}, "Zoom direction (default: #{options.zoom_direction})") do |t|
-  #   options.zoom_direction = t
-  # end
   opts.on("--zoom-direction=[DIRECTION]", ["random"] + ["top", "bottom"].product(["left", "right"], ["in", "out"]).map {|m| m.join("-")}, "Zoom direction (default: #{options.zoom_direction})") do |t|
     options.zoom_direction = t
   end
@@ -69,9 +68,6 @@ OptionParser.new do |opts|
   opts.on("--audio_narration=[FILE]", "Use FILE as audio narration track") do |f|
     options.audio_narration = f
   end
-  opts.on("--subtitles=[FILE]", "Use FILE as an srt file for subtitles") do |f|
-    options.subtitles = f
-  end
   opts.on("--audio_music=[FILE]", "Use FILE as audio music track") do |f|
     options.audio_music = f
   end
@@ -87,7 +83,7 @@ if ARGV.length < 2
   puts "Need at least 1 input file and output file"
   exit 1
 end
-input_files = ARGV[0..-4]
+input_files = ARGV[0..-2]
 output_file = ARGV[-1]
 
 
@@ -121,6 +117,7 @@ slides = input_files.map do |file|
       options.scale_mode
   }
 end
+
 if options.loopable
   slides << slides[0]
 end
@@ -263,11 +260,6 @@ end
 filter_chains += ["[#{slides.count+1}:a]volume=#{options.audio_music_volume_adjustment}dB[adjusted_music]"]
 filter_chains += ["[#{slides.count}:a][adjusted_music]amix=inputs=2:duration=longest[aout]"]
 
-# Subtitles
-subtitle_style = "BorderStyle=3,Outline=2,Fontname=Arial,Fontsize=16,PrimaryColour=&H00ffffff,OutlineColour=&H00000000,BackColour=&H00000000,Alignment=2"
-subtitles_filter = "[out]subtitles='#{options.subtitles}':force_style='#{subtitle_style}'[outWithSubs]"
-filter_chains.push(subtitles_filter)
-
 # Dump filterchain for debugging
 if options.dump_filter_graph
   filters = filter_chains.map do |f|
@@ -300,7 +292,7 @@ cmd = [
   ] : [
     "-t", ((options.slide_duration_s)*slides.count+options.fade_duration_s).to_s
   ]),
-  "-map", "[outWithSubs]",
+  "-map", "[out]",
   "-map", "[aout]",
   "-c:v", "libx264", output_file
 ]

@@ -4,3 +4,4 @@ outputs/*
 src/__pycache__/*
 lib/background_music
 /temp/*
+/lib/sound FX/

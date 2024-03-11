@@ -18,7 +18,7 @@ load_dotenv()  # This loads the variables from '.env' into the environment
 
 DEBUG = os.getenv('DEBUG') == 'True'
 
-DESTINATION_DIR = "./demo_output/"
+DEMO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'demo_output')
 VOICE_NAME = 'Adam'
 VOICE_FILE = "awesome_voice.mp3"
 SRT_FILE = "awesome_voice.srt"
@@ -56,6 +56,6 @@ def generate_video(voice_name: str, video_dir: str):
 
 if __name__ == "__main__":
     generate_video(
-        voice_name = VOICE_NAME,
-        video_dir= DESTINATION_DIR
+        voice_name=VOICE_NAME,
+        video_dir=DEMO_DIR
     )
