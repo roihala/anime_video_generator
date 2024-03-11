@@ -3,3 +3,4 @@ outputs/*
 /.idea
 src/__pycache__/*
 lib/background_music
+/temp/*
