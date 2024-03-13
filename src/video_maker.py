@@ -5,6 +5,7 @@
 #
 import os
 import random
+import cv2
 
 from pydantic import BaseModel
 
@@ -24,14 +25,16 @@ OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
 
 # Ruby
 RUBY_DIR = LIB_DIRECTORY / 'ruby'
-SCENE_MAKER_FILE = RUBY_DIR / 'make_scene.rb'
-SHARP_CUT_FILE = RUBY_DIR / 'sharp_cut.rb'
+SCENE_MAKER = RUBY_DIR / 'make_scene.rb'
+SHARP_CUT_MAKER = RUBY_DIR / 'sharp_cut.rb'
 
 # Current video subdirectory
 OUTPUT_DIR = 'output'
 IMAGES_DIR = 'images'
-SHARP_CUT_FILE_FORMAT = 'sharpcut_{index0}_{index1}.mp4'
+SHARP_CUT_FILE_FORMAT = 'sharpcut_{0}_{1}.mp4'
 SCENE_FILE_FORMAT = 'scene{index}.mp4'
+FIRST_FRAME_PATH = 'scene{}_first_frame.jpg'
+LAST_FRAME_PATH = 'scene{}_last_frame.jpg'
 
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
@@ -39,8 +42,12 @@ SCALE_MODES = ['pad', 'pan']
 
 
 class Slide(BaseModel):
+    index: int
     img_path: Path
-    output_path: Path
+    scene_path: Path
+    cut_path: Path = None
+    first_frame_path: Path = None
+    last_frame_path: Path = None
     duration: float
 
 
@@ -50,43 +57,40 @@ class VideoMaker:
         self.output_dir: Path = video_dir / OUTPUT_DIR
         self.narration_file_path = narration_file_path
 
-        self.slides_dict = {i: Slide(img_path=self.video_dir / IMAGES_DIR / f, duration=random.uniform(3, 4),
-                                     output_path=self.output_dir / SCENE_FILE_FORMAT.format(index=i)) for i, f in
-                            enumerate(os.listdir(self.video_dir / IMAGES_DIR))}
+        self.slides = [Slide(index=i, img_path=self.video_dir / IMAGES_DIR / f, duration=random.uniform(3, 4),
+                             scene_path=self.output_dir / SCENE_FILE_FORMAT.format(index=i)) for i, f in
+                       enumerate(os.listdir(self.video_dir / IMAGES_DIR))]
 
         # TODO
         video_file_path = video_dir / "video/video.mp4"
         self.video_file_path = video_file_path
 
     def make_video(self):
-        self.make_scenes()
-        # self.make_cuts('x', 'y')
+        # self.make_scenes()
+        self.make_cuts()
         # self.old_video_maker()
         # return
 
     def make_scenes(self):
-        for i, slide in self.slides_dict.items():
+        for i, slide in enumerate(self.slides):
             cmd = (
-                f'ruby {SCENE_MAKER_FILE} {slide.img_path} {slide.output_path} --slide-duration={slide.duration} '
+                f'ruby {SCENE_MAKER} {slide.img_path} {slide.scene_path} --slide-duration={slide.duration} '
                 f'--zoom-rate=0.1 --zoom-direction=random --scale-mode={random.choice(SCALE_MODES)} -y')
 
             log.info(f'ruby command {cmd}')
             os.system(cmd)
 
-    def make_cuts(self, scene_1, scene_2):
-        # for i,  in enumerate(slides_dict.items()):
+    def make_cuts(self):
+        for i, slide in enumerate(self.slides[0:-1]):
+            last_frame = self.extract_frame(slide, is_last=True)
+            first_frame = self.extract_frame(self.slides[i+1], is_last=False)
+            cut_file = self.output_dir / SHARP_CUT_FILE_FORMAT.format(i, i + 1)
 
-        transition_file_path = os.path.join(self.video_dir, 'sharp_cut.mp4')
-        images_dir = self.video_dir / IMAGES_DIR
-        slides_dict = {os.path.join(images_dir, f): random.uniform(3, 4) for f in os.listdir(images_dir)
-                       if os.path.isfile(os.path.join(images_dir, f))}
-        images_string = " ".join(list(slides_dict.keys())[0:2])
-
-        cmd = f'ruby {SHARP_CUT_FILE} {images_string} {transition_file_path}'
-
-        log.info(f'ruby command {cmd}')
-        os.system(cmd)
-        log.info(f"video generated : {self.video_file_path}")
+            cmd = f'ruby {SHARP_CUT_MAKER} {last_frame} {first_frame} {cut_file}'
+            log.info(f'ruby command {cmd}')
+            os.system(cmd)
+            log.info(f"video generated : {self.video_file_path}")
+            break
 
     def old_video_maker(self):
         log.info("generating video...")
@@ -116,11 +120,52 @@ class VideoMaker:
     def sharp_cut(self, images):
         images_string = " ".join(images)
         transition_file_path = os.path.join(self.video_dir, 'sharp_cut.mp4')
-        cmd = f'ruby {SHARP_CUT_FILE} {images_string} {transition_file_path}'
+        cmd = f'ruby {SHARP_CUT_MAKER} {images_string} {transition_file_path}'
 
         log.info(f'ruby command {cmd}')
         os.system(cmd)
         log.info(f"video generated : {self.video_file_path}")
+
+    def extract_frame(self, slide: Slide, is_last=True):
+        # if not is_last - will extract first frame
+        video_path = slide.scene_path
+        # Capture the video
+        cap = cv2.VideoCapture(str(video_path))
+        # Check if video opened successfully
+        if not cap.isOpened():
+            print("Error opening video file")
+        else:
+            if is_last:
+                image_path = self.output_dir / LAST_FRAME_PATH.format(slide.index)
+
+                # Get the total number of frames in the video
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                frame_index = total_frames - 1
+            else:
+                image_path = self.output_dir / FIRST_FRAME_PATH.format(slide.index)
+                frame_index = 0
+
+            # Set the current frame position to the last frame
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+
+            # Read the last frame
+            ret, frame = cap.read()
+
+            # Check if the frame was captured successfully
+            if ret:
+                # Save the frame as an image
+                cv2.imwrite(str(image_path), frame)
+                if is_last:
+                    slide.last_frame_path = image_path
+                else:
+                    slide.first_frame_path = image_path
+                return image_path
+            else:
+                log.warning("Error extracting the last frame", None)
+
+            # Release the video capture object
+            cap.release()
+            cv2.destroyAllWindows()
 
     # private methods
     def _calculate_slide_daration(self, audio_duration: int, number_of_images: int) -> float:
