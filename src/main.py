@@ -43,11 +43,11 @@ def generate_video(voice_name: str, video_dir: str):
 
     log.info("STEP 2 - narration")
     voice_file_path = path.join(video_dir, VOICE_FILE)
-    ScriptNarration().narrate(voice_name, script, voice_file_path)
+    # ScriptNarration().narrate(voice_name, script, voice_file_path)
 
     log.info("STEP 3 - captions")
     srt_file_path = path.join(video_dir, SRT_FILE)
-    CaptionsGenerator(voice_file_path, srt_file_path).generate_captions()
+    # CaptionsGenerator(voice_file_path, srt_file_path).generate_captions()
 
     log.info("STEP 4 - video")
     video_file_path = os.path.join(video_dir, VIDEO_FILE)

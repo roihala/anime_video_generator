@@ -10,3 +10,4 @@ pyloudnorm
 soundfile
 whisper
 stable-ts==1.1.1b0
+pathlib

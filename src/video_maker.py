@@ -17,6 +17,7 @@ RUBY_DIR_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file
 AUDIO_LIBRARY = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'background_music')
 
 MAKER_SCRIPT_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'maker.rb')
+SCENE_MAKER_SCRIPT_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib', 'ruby'), 'make_scene.rb')
 SHARP_CUT_SCRIPT_PATH = os.path.join(RUBY_DIR_PATH, 'sharp_cut.rb')
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
@@ -29,28 +30,50 @@ class VideoMaker:
         self.srt_file_path = srt_file_path
 
     def make_video(self):
+        # self.old_video_maker()
+        # return
+        #TODO: get slides_dict and video_duration from outoside
+        images_dir = os.path.join(self.video_dir, 'images')
+        slides_dict = {os.path.join(images_dir, f): random.uniform(3, 4) for f in os.listdir(images_dir)
+                       if os.path.isfile(os.path.join(images_dir, f))}
+        video_duration = sum(slides_dict.values())
+
+        for i, (slide, duration) in enumerate(slides_dict.items()):
+            # TODO: pan, pad
+            scene_name = f'scene_{i}.mp4'
+            scene_file_path = os.path.join(self.video_dir, scene_name)
+
+            cmd = f'ruby {SCENE_MAKER_SCRIPT_PATH} {slide} {scene_file_path} --slide-duration={duration} --zoom-rate=0.1 --zoom-direction=random --scale-mode=pan -y'
+
+            log.info(f'ruby command {cmd}')
+            os.system(cmd)
+            break
+
+    def old_video_maker(self):
         log.info("generating video...")
 
         images_dir = os.path.join(self.video_dir, 'images')
-        images_list = [os.path.join(images_dir, f) for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f))]
+        images_list = [os.path.join(images_dir, f) for f in os.listdir(images_dir) if
+                       os.path.isfile(os.path.join(images_dir, f))]
         video_duration = self._get_audio_duration(self.voice_file_path)
         background_audio, volume_adjustment = self._get_background_audio(video_duration)
         slide_duration = self._calculate_slide_daration(
-            audio_duration= video_duration,
-            number_of_images = len(images_list)
+            audio_duration=video_duration,
+            number_of_images=len(images_list)
         )
 
         # self.sharp_cut(images_list[0:2])
         # return
+
         images_string = " ".join(images_list)
 
         cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} -y'
-
         log.info(f'ruby command {cmd}')
         os.system(cmd)
 
         # TODO: how to tell if it was successful?
         log.info(f"video generated : {self.video_file_path}")
+
 
     def sharp_cut(self, images):
         images_string = " ".join(images)
@@ -64,7 +87,10 @@ class VideoMaker:
 
     # private methods
     def _calculate_slide_daration(self, audio_duration: int, number_of_images: int) -> float:
-        return audio_duration / number_of_images
+        # TODO: return dynamic slide duration
+        return 4
+
+        # return audio_duration / number_of_images
 
     def _get_audio_duration(self, mp3_audio_file_path: str) -> int:
         audio_object = AudioSegment.from_file(mp3_audio_file_path, format="mp3")
