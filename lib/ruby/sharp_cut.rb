@@ -47,7 +47,7 @@ begin
   '00:00:02.000',
   '-frames:v',
   '13',
-  '-y'
+  '-y',
   output_file
 ]
 

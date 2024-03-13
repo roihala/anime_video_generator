@@ -6,48 +6,87 @@
 import os
 import random
 
+from pydantic import BaseModel
+
 from log import log
 from pydub import AudioSegment
 import soundfile as sf
 import pyloudnorm as pyln
+from types import SimpleNamespace
 from src.animax_exception import AnimaxException, BacgkgroundMusicException
 
+from pathlib import Path
 
-RUBY_DIR_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'ruby')
-AUDIO_LIBRARY = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'background_music')
+# Lib
+LIB_DIRECTORY = Path(os.path.dirname(os.path.dirname(__file__))) / 'lib'
+AUDIO_LIBRARY = LIB_DIRECTORY / 'background_music'
+OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
 
-MAKER_SCRIPT_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'maker.rb')
-SCENE_MAKER_SCRIPT_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib', 'ruby'), 'make_scene.rb')
-SHARP_CUT_SCRIPT_PATH = os.path.join(RUBY_DIR_PATH, 'sharp_cut.rb')
+# Ruby
+RUBY_DIR = LIB_DIRECTORY / 'ruby'
+SCENE_MAKER_FILE = RUBY_DIR / 'make_scene.rb'
+SHARP_CUT_FILE = RUBY_DIR / 'sharp_cut.rb'
+
+# Current video subdirectory
+OUTPUT_DIR = 'output'
+IMAGES_DIR = 'images'
+SHARP_CUT_FILE_FORMAT = 'sharpcut_{index0}_{index1}.mp4'
+SCENE_FILE_FORMAT = 'scene{index}.mp4'
+
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
+SCALE_MODES = ['pad', 'pan']
+
+
+class Slide(BaseModel):
+    img_path: Path
+    output_path: Path
+    duration: float
+
 
 class VideoMaker:
-    def __init__(self, video_dir: str, voice_file_path: str, video_file_path: str, srt_file_path: str):
+    def __init__(self, video_dir: Path, narration_file_path: Path):
         self.video_dir = video_dir
-        self.voice_file_path = voice_file_path
+        self.output_dir: Path = video_dir / OUTPUT_DIR
+        self.narration_file_path = narration_file_path
+
+        self.slides_dict = {i: Slide(img_path=self.video_dir / IMAGES_DIR / f, duration=random.uniform(3, 4),
+                                     output_path=self.output_dir / SCENE_FILE_FORMAT.format(index=i)) for i, f in
+                            enumerate(os.listdir(self.video_dir / IMAGES_DIR))}
+
+        # TODO
+        video_file_path = video_dir / "video/video.mp4"
         self.video_file_path = video_file_path
-        self.srt_file_path = srt_file_path
 
     def make_video(self):
+        self.make_scenes()
+        # self.make_cuts('x', 'y')
         # self.old_video_maker()
         # return
-        #TODO: get slides_dict and video_duration from outoside
-        images_dir = os.path.join(self.video_dir, 'images')
-        slides_dict = {os.path.join(images_dir, f): random.uniform(3, 4) for f in os.listdir(images_dir)
-                       if os.path.isfile(os.path.join(images_dir, f))}
-        video_duration = sum(slides_dict.values())
 
-        for i, (slide, duration) in enumerate(slides_dict.items()):
-            # TODO: pan, pad
-            scene_name = f'scene_{i}.mp4'
-            scene_file_path = os.path.join(self.video_dir, scene_name)
-
-            cmd = f'ruby {SCENE_MAKER_SCRIPT_PATH} {slide} {scene_file_path} --slide-duration={duration} --zoom-rate=0.1 --zoom-direction=random --scale-mode=pan -y'
+    def make_scenes(self):
+        for i, slide in self.slides_dict.items():
+            cmd = (
+                f'ruby {SCENE_MAKER_FILE} {slide.img_path} {slide.output_path} --slide-duration={slide.duration} '
+                f'--zoom-rate=0.1 --zoom-direction=random --scale-mode={random.choice(SCALE_MODES)} -y')
 
             log.info(f'ruby command {cmd}')
             os.system(cmd)
-            break
+
+    def make_cuts(self, scene_1, scene_2):
+        # for i,  in enumerate(slides_dict.items()):
+
+        transition_file_path = os.path.join(self.video_dir, 'sharp_cut.mp4')
+        images_dir = self.video_dir / IMAGES_DIR
+        slides_dict = {os.path.join(images_dir, f): random.uniform(3, 4) for f in os.listdir(images_dir)
+                       if os.path.isfile(os.path.join(images_dir, f))}
+        images_string = " ".join(list(slides_dict.keys())[0:2])
+
+        cmd = f'ruby {SHARP_CUT_FILE} {images_string} {transition_file_path}'
+
+        log.info(f'ruby command {cmd}')
+        os.system(cmd)
+        log.info(f"video generated : {self.video_file_path}")
 
     def old_video_maker(self):
         log.info("generating video...")
@@ -55,7 +94,7 @@ class VideoMaker:
         images_dir = os.path.join(self.video_dir, 'images')
         images_list = [os.path.join(images_dir, f) for f in os.listdir(images_dir) if
                        os.path.isfile(os.path.join(images_dir, f))]
-        video_duration = self._get_audio_duration(self.voice_file_path)
+        video_duration = self._get_audio_duration(self.narration_file_path)
         background_audio, volume_adjustment = self._get_background_audio(video_duration)
         slide_duration = self._calculate_slide_daration(
             audio_duration=video_duration,
@@ -67,23 +106,21 @@ class VideoMaker:
 
         images_string = " ".join(images_list)
 
-        cmd = f'ruby {MAKER_SCRIPT_PATH} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --audio_narration={self.voice_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} -y'
+        cmd = f'ruby {OLD_MAKER_FILE} {images_string} {self.video_file_path} --size=1080x1920 --slide-duration={slide_duration} --fade-duration=1 --zoom-rate=0.2 --zoom-direction=random --scale-mode=pad --audio_narration={self.narration_file_path} --audio_music="{background_audio}" --audio_music_volume_adjustment={volume_adjustment} -y'
         log.info(f'ruby command {cmd}')
         os.system(cmd)
 
         # TODO: how to tell if it was successful?
         log.info(f"video generated : {self.video_file_path}")
 
-
     def sharp_cut(self, images):
         images_string = " ".join(images)
         transition_file_path = os.path.join(self.video_dir, 'sharp_cut.mp4')
-        cmd = f'ruby {SHARP_CUT_SCRIPT_PATH} {images_string} {transition_file_path}'
+        cmd = f'ruby {SHARP_CUT_FILE} {images_string} {transition_file_path}'
 
         log.info(f'ruby command {cmd}')
         os.system(cmd)
         log.info(f"video generated : {self.video_file_path}")
-
 
     # private methods
     def _calculate_slide_daration(self, audio_duration: int, number_of_images: int) -> float:
