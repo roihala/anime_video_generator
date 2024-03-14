@@ -75,10 +75,7 @@ class VideoMaker:
     def make_video(self):
         self.make_scenes()
         self.make_transitions()
-        self.connect_all()
-        return
-        # self.old_video_maker()
-        # return
+        # self.connect_all()
 
     def make_scenes(self):
         for i, slide in enumerate(self.slides):
@@ -100,7 +97,7 @@ class VideoMaker:
             cmd = f'ruby {SHARP_CUT_MAKER} {last_frame} {first_frame} {slide.transition_path}'
             log.info(f'ruby command {cmd}')
             os.system(cmd)
-            log.info(f"video generated : {self.video_file_path}")
+            log.info(f"video generated : {slide.transition_path}")
 
     def connect_all(self):
         # Generate the necessary attributes for the ruby file:

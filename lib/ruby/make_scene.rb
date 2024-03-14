@@ -227,14 +227,35 @@ filter_chains += slides.each_with_index.map do |slide, i|
   "[#{input_1}][#{input_2}]#{overlay_filter}[#{output}]"
 end
 
-# Run ffmpeg
-cmd = [
-  "ffmpeg", "-hide_banner", *options.y ? ["-y"] : [],
-  *slides.map { |s| ["-i", s[:file]] }.flatten,
-  "-filter_complex", filter_chains.join(";"),
-  "-t", (options.slide_duration_s).to_s,
-  "-map", "[out]",
-  "-c:v", "libx264", output_file
+# Start generating
+temp_file = Tempfile.new(['scene', '.mp4'])
+begin
+  # Run ffmpeg
+  cmd = [
+    "ffmpeg", "-hide_banner", *options.y ? ["-y"] : [],
+    *slides.map { |s| ["-i", s[:file]] }.flatten,
+    "-filter_complex", filter_chains.join(";"),
+    "-t", (options.slide_duration_s).to_s,
+    "-map", "[out]",
+    "-c:v", "libx264", temp_file.path
+  ]
+  puts cmd.join(" ")
+  system(*cmd)
+
+  ffmpeg_command = [
+  "ffmpeg",
+  "-i", temp_file.path,
+  "-vf", "select='gt(n,0)'",
+  "-vsync", "vfr",
+  "-c:a", "copy",
+  '-y',
+  output_file
 ]
-puts cmd.join(" ")
-system(*cmd)
+  puts ffmpeg_command.join(" ")
+  system(*ffmpeg_command)
+
+ensure
+  # Close and delete the temporary file
+  temp_file.close!
+  temp_file.unlink   # deletes the temp file
+end

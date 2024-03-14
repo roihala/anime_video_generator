@@ -1,18 +1,21 @@
 import os
 
+
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
 
 import freesound
 
+from src.video_maker import LIB_DIRECTORY
+
 load_dotenv()  # This loads the variables from '.env' into the environment
 
-AUDIO_DIRECTORY_PATH = os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib'), 'background_music')
+AUDIO_DIRECTORY_PATH = LIB_DIRECTORY / 'background_music'
 
 
 class GetBackgroundMusic:
     SEARCH_TERMS = [
-        "Cinematic orchestral music",
+        # "Cinematic orchestral music",
         "Epic adventure soundtrack",
         "Mysterious ambient tracks",
         "Upbeat electronic anime theme",
@@ -71,7 +74,11 @@ class GetBackgroundMusic:
             results = self.client.text_search(query=term, fields="id,name,previews")
 
             for sound in results:
-                sound.retrieve(AUDIO_DIRECTORY_PATH, sound.name + ".mp3")
+                try:
+                    sound.retrieve(str(AUDIO_DIRECTORY_PATH), sound.name + ".wav")
+                    print('retrieved X')
+                except Exception:
+                    pass
 
 
 if __name__ == '__main__':
