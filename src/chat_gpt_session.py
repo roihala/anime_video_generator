@@ -6,10 +6,10 @@
 import os
 from dotenv import load_dotenv
 
-import openai
-from openai import OpenAI
 load_dotenv()  # This loads the variables from '.env' into the environment
+os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
 
+from openai import OpenAI
 
 class ChatGPTSession:
     def __init__(self, system_message: str):
@@ -17,7 +17,7 @@ class ChatGPTSession:
         # new
         # TODO: api key
         self._client = OpenAI(
-            api_key='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',  # this is also the default, it can be omitted
+            api_key='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',  # this is also the default, it can be omitted
         )
         self._chat_log = []
 
