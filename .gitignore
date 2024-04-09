@@ -1,7 +1,7 @@
 outputs/*
 *.pyc
 /.idea
-src/__pycache__/*
+__pycache__/
 lib/background_music
 /temp/*
 /lib/sound FX/

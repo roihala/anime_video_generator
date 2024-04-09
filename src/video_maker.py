@@ -80,7 +80,7 @@ class VideoMaker:
     def make_scenes(self):
         for i, slide in enumerate(self.slides):
             cmd = (
-                f'ruby {SCENE_MAKER} {slide.img_path} {slide.scene_path} --slide-duration={slide.scene_duration} '
+                f'{os.getenv('RUBY_PATH')} {SCENE_MAKER} {slide.img_path} {slide.scene_path} --slide-duration={slide.scene_duration} '
                 f'--zoom-rate=0.1 --zoom-direction=random --scale-mode={random.choice(SCALE_MODES)} -y')
 
             log.info(f'ruby command {cmd}')
@@ -94,7 +94,7 @@ class VideoMaker:
 
             # This calculation is specifically for sharp cut, other transitions will have to be calculated differently
             slide.transition_duration = (FRAME_DURATION * SHARP_CUT_FRAME_DURATION)
-            cmd = f'ruby {SHARP_CUT_MAKER} {last_frame} {first_frame} {slide.transition_path}'
+            cmd = f'{os.getenv('RUBY_PATH')} {SHARP_CUT_MAKER} {last_frame} {first_frame} {slide.transition_path}'
             log.info(f'ruby command {cmd}')
             os.system(cmd)
             log.info(f"video generated : {slide.transition_path}")
@@ -115,7 +115,7 @@ class VideoMaker:
 
         background_music, volume_adjustment = self._get_background_audio(sum(durations))
 
-        cmd = (f'ruby {VIDEO_MAKER} '
+        cmd = (f'{os.getenv('RUBY_PATH')} {VIDEO_MAKER} '
                f'--file_list {self.output_dir / FILE_LIST} '
                f'--durations "{','.join([str(_) for _ in durations])}" '
                f'--background_music "{background_music}" '
@@ -131,7 +131,7 @@ class VideoMaker:
     def sharp_cut(self, images):
         images_string = " ".join(images)
         transition_file_path = os.path.join(self.video_dir, 'sharp_cut.mp4')
-        cmd = f'ruby {SHARP_CUT_MAKER} {images_string} {transition_file_path}'
+        cmd = f'{os.getenv('RUBY_PATH')} {SHARP_CUT_MAKER} {images_string} {transition_file_path}'
 
         log.info(f'ruby command {cmd}')
         os.system(cmd)
