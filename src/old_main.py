@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-#  main.py
+#  old_main.py
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
