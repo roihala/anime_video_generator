@@ -17,7 +17,7 @@ class ChatGPTSession:
         # new
         # TODO: api key
         self._client = OpenAI(
-            api_key='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',  # this is also the default, it can be omitted
+            api_key='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',  # this is also the default, it can be omitted
         )
         self._chat_log = []
 

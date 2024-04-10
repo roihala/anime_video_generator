@@ -11,10 +11,11 @@ from pathlib import Path
 from log import log
 from src.captions_generator import CaptionsGenerator
 from src.script_generator import ScriptGenerator
-from src.script_narration import ScriptNarration
+from src.narrator import Narrator
 from video_maker import VideoMaker
 from dotenv import load_dotenv
 import os
+import assemblyai as aai
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 
@@ -24,7 +25,6 @@ DEMO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'demo_output
 VOICE_NAME = 'Adam'
 NARRATION_FILE = "awesome_voice.mp3"
 SRT_FILE = "awesome_voice.srt"
-VIDEO_FILE = "video/video.mp4"
 
 VIDEO_DIR_STRUCTURE = ['images', 'video']
 
@@ -42,14 +42,17 @@ def generate_video(voice_name: str, video_dir: str):
     log.info("STEP 0 - Prepare images")
 
     log.info("STEP 1 - script")
-    # script = ScriptGenerator().generate()
+    script = ScriptGenerator().generate()
 
     log.info("STEP 2 - narration")
-    narration_file_path = video_dir / NARRATION_FILE
-    # ScriptNarration().narrate(voice_name, script, voice_file_path)
 
-    log.info("STEP 3 - video")
-    VideoMaker(video_dir, narration_file_path).make_video()
+    narrator = Narrator()
+    # TODO: voice from our api
+    narration_url = narrator.narrate(voice_name, script)
+    narrator.request_transcription()
+
+    # log.info("STEP 3 - video")
+    # VideoMaker(video_dir, narration_url).make_video()
 
 
 if __name__ == "__main__":

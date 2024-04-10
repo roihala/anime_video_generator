@@ -11,5 +11,6 @@ stable-ts==1.1.1b0
 pathlib
 pydantic
 opencv-python
-
-
+assemblyai
+requests
+requests_oauthlib
