@@ -5,7 +5,7 @@
 #
 import json
 import os
-from log import log
+from src.log import log
 from io import BytesIO
 from pathlib import Path
 
@@ -15,8 +15,8 @@ from pydub import AudioSegment
 
 class Narrator:
     def __init__(self):
-        self.play_ht_userid = 't1qku3PnMYMH71u1BWkr6tkzScp2'
-        self.play_ht_api_key = 'a0d3f0d512c64c3c8532a1a7d7a603b2'
+        self.play_ht_userid = os.getenv("PLAY_HT_USER_ID")
+        self.play_ht_api_key = os.getenv("PLAY_HT_API_KEY")
         self.narration_response = None
 
     def narrate(self, voice_url: str, script: str) -> str:

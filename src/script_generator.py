@@ -5,11 +5,10 @@
 #
 import os
 
-from chat_gpt_session import ChatGPTSession
-from log import log
+from src.chat_gpt_session import ChatGPTSession
+from src.log import log
 import os
 
-# TODO - write the output strings to files, destination will be provided from the outside for each file
 
 class ScriptGenerator:
     # init
