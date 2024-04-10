@@ -3,17 +3,23 @@
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
+import os
+from dotenv import load_dotenv
 
-import openai
+load_dotenv()  # This loads the variables from '.env' into the environment
+os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
+
+from openai import OpenAI
 
 class ChatGPTSession:
-    # private properties
-    _chat_session = openai.ChatCompletion()
-    _chat_log = []
-
-    # init
     def __init__(self, system_message: str):
         self._set_system_message(system_message)
+        # new
+        # TODO: api key
+        self._client = OpenAI(
+            api_key='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',  # this is also the default, it can be omitted
+        )
+        self._chat_log = []
 
     # api methods
     def ask(self, question: str) -> str:
@@ -21,11 +27,9 @@ class ChatGPTSession:
             'role': 'user',
             'content': question
         })
-        response = self._chat_session.create(
-            model = 'gpt-3.5-turbo',
-            messages = self._chat_log
-        )
-        answer = response.choices[0]['message']['content']
+        self._completion = self._client.chat.completions.create(model='gpt-3.5-turbo', messages=self._chat_log)
+        answer = self._completion.choices[0].message.content
+
         self._chat_log.append({
             'role': 'assistant',
             'content': answer

@@ -1,57 +1,62 @@
 #!/usr/bin/env python3
-
 #
 #  main.py
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
 
-from os import path, makedirs
-from log import log
-from script_generator import ScriptGenerator
-from script_narration import ScriptNarration
-from captions_generator import CaptionsGenerator
-from video_maker import VideoMaker
+from os import path
+from pathlib import Path
 
-def main(channel_name: str, topic: str, voice_name: str, destination_dir: str):
-    if not path.exists(destination_dir):
-        makedirs(destination_dir)
-        log.info(f"new destination directory created: {destination_dir}")
+from log import log
+from src.captions_generator import CaptionsGenerator
+from src.script_generator import ScriptGenerator
+from src.narrator import Narrator
+from video_maker import VideoMaker
+from dotenv import load_dotenv
+import os
+import assemblyai as aai
+
+load_dotenv()  # This loads the variables from '.env' into the environment
+
+DEBUG = os.getenv('DEBUG') == 'True'
+
+DEMO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'demo_output')
+VOICE_NAME = 'Adam'
+NARRATION_FILE = "awesome_voice.mp3"
+SRT_FILE = "awesome_voice.srt"
+
+VIDEO_DIR_STRUCTURE = ['images', 'video']
+
+
+def generate_video(voice_name: str, video_dir: str):
+    video_dir = Path(video_dir)
+    # Prepare
+    if not path.exists(video_dir):
+        os.makedirs(os.path.join(video_dir), exist_ok=True)
+
+    # Create each subdirectory
+    for subdir in VIDEO_DIR_STRUCTURE:
+        os.makedirs(os.path.join(video_dir, subdir), exist_ok=True)
+
+    log.info("STEP 0 - Prepare images")
 
     log.info("STEP 1 - script")
-    script, captions, _ = ScriptGenerator().generate(
-        channel_name,
-        topic,
-        is_verbose_print = True
-    )
+    script = ScriptGenerator().generate()
 
     log.info("STEP 2 - narration")
-    mp3_file_destination_with_extension = path.join(destination_dir, "awesome_voice.mp3")
-    ScriptNarration().narrate(
-        voice_name,
-        script,
-        mp3_file_destination_with_extension
-    )
 
-    log.info("STEP 3 - captions")
-    generated_images_path_list = CaptionsGenerator().generate_captions(
-        captions_string = captions,
-        destination_dir = destination_dir,
-        is_crop_to_ratio_16_9 = True
-    )
+    narrator = Narrator()
+    # TODO: voice from our api
+    narration_url = narrator.narrate(voice_name, script)
+    narrator.request_transcription()
 
-    log.info("STEP 4 - video")
-    VideoMaker().create_video(
-        images_list = generated_images_path_list,
-        mp3_audio_file_path = mp3_file_destination_with_extension,
-        mp4_file_destination_with_extension = path.join(destination_dir, "video.mp4"),
-        is_duplicate_images_count_to_improve_smoothness = True
-    )
+    # log.info("STEP 3 - video")
+    # VideoMaker(video_dir, narration_url).make_video()
+
 
 if __name__ == "__main__":
-    main(
-        channel_name = "THE AWESOME YOUTUBE CHANNEL",
-        topic = "Explore the idea of how awesome it could be if everyone was awesome to one another.",
-        voice_name = "Adam",
-        destination_dir = "./demo_output/"
+    generate_video(
+        voice_name=VOICE_NAME,
+        video_dir=DEMO_DIR
     )
