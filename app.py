@@ -1,17 +1,13 @@
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, Depends
+from fastapi import FastAPI, Query, Depends, Request, HTTPException
 from pydantic import BaseModel, HttpUrl, Field
 from enum import Enum
 
-from config import DEMO_DIR, VIDEO_DIR_STRUCTURE
-from src.log import log
-from src.narrator import Narrator
-from src.script_generator import ScriptGenerator
-
+from src.video_maker import VideoMaker
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 app = FastAPI()
@@ -29,35 +25,46 @@ class StoryToVideoRequest(BaseModel):
     voice: Optional[VoiceOption] = Field(None, description="The voice to be used for narration")
 
 
+class TranscriptionData(BaseModel):
+    job_id: str
+    input: Dict[str, Any]
+    results: Dict[str, Any]
+    transcription: Optional[str] = None
+
+
 @app.get("/story_to_video")
 async def read_items(request: StoryToVideoRequest = Depends()):
     """
     This function expects a story URL and a webhook URL to notify when it's done.
     """
-    video_dir = Path(DEMO_DIR)
-    # Prepare
-    if not os.path.exists(video_dir):
-        os.makedirs(os.path.join(video_dir), exist_ok=True)
+    VideoMaker().make_video()
 
-    # Create each subdirectory
-    for subdir in VIDEO_DIR_STRUCTURE:
-        os.makedirs(os.path.join(video_dir, subdir), exist_ok=True)
+    return {"message": "Success", "story_url": request.story_url, "webhook_url": request.webhook_url,
+            "voice": request.voice}
 
-    log.info("STEP 0 - Prepare images")
 
-    log.info("STEP 1 - script")
-    script = ScriptGenerator().generate()
+@app.get("/transcription_webhook")
+async def transcription_webhook(request: Request):
+    body = await request.json()
+    # Validate that the data structure matches what we expect
+    try:
+        data = TranscriptionData(**body["data"])
+    except KeyError:
+        # If the data does not have the expected structure, return a 400 error.
+        raise HTTPException(status_code=400, detail="Invalid data structure")
+    except Exception as e:
+        # For any other exceptions, return a 500 server error.
+        raise HTTPException(status_code=500, detail=str(e))
 
-    log.info("STEP 2 - narration")
-
-    narrator = Narrator()
-    # TODO: voice from our api
-    # narration_url = narrator.narrate(voice_name, script)
-    narrator.request_transcription()
-
-    # log.info("STEP 3 - video")
-    # VideoMaker(video_dir, narration_url).make_video()
-    return {"message": "Success", "story_url": request.story_url, "webhook_url": request.webhook_url, "voice": request.voice}
+    # Check if the "transcription" part exists and process it accordingly
+    if data.transcription:
+        # Process the transcription part here
+        print("Transcription:", data.transcription)
+        # Respond that the request was processed successfully
+        return {"message": "Transcription processed successfully."}
+    else:
+        # If there is no transcription, you might want to return a different message
+        return {"message": "No transcription to process."}
 
 
 @app.get("/")
@@ -65,4 +72,5 @@ async def read_items():
     """
     This function expects for a story url and a webhook url to notify when it's done
     """
+
     return {"hello": "world"}

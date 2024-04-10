@@ -19,7 +19,7 @@ class Narrator:
         self.play_ht_api_key = os.getenv("PLAY_HT_API_KEY")
         self.narration_response = None
 
-    def narrate(self, voice_url: str, script: str) -> str:
+    def narrate(self, voice_url: str, script: str) -> (str, str):
         """
         https://docs.play.ht/reference/api-generate-audio
         """
@@ -42,7 +42,7 @@ class Narrator:
 
         response = requests.post(url, json=payload, headers=headers)
         self.narration_response = self.parse_playht_response(response.text)
-        return self.narration_response.get('url')
+        return self.narration_response.get('id'), self.narration_response.get('url')
 
     def request_transcription(self):
         """
@@ -56,8 +56,7 @@ class Narrator:
             "format": "SRT",
             "timestamp_level": "WORD",
             "tts_job_id": self.narration_response.get('id'),
-            # todo: webhook
-            "webhook_url": "https://webhook.site/f3fcb54c-24ce-47e6-9a65-663770829de1"
+            "webhook_url": os.getenv("TRANSCRIPTION_WEBHOOK_URL")
         }
         headers = {
             "accept": "application/json",
@@ -69,7 +68,7 @@ class Narrator:
         # Send and hope for good
         response = requests.post(url, json=payload, headers=headers)
         if not response.status_code == 201:
-            raise ConnectionError("Couldn't setup srt file webhook")
+            raise ConnectionError(f"Couldn't setup srt file webhook, {response.content}")
 
     # api methods
     def parse_playht_response(self, response_text) -> dict:

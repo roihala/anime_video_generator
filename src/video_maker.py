@@ -5,11 +5,18 @@
 #
 import os
 import random
+import time
+
 import cv2
+import requests
 
 from pydantic import BaseModel
 
-from log import log
+from config import DEMO_DIR, VIDEO_DIR_STRUCTURE, OUTPUT_DIR, SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
+    FILE_LIST, TRANSITION_SOUND_EFFECT, LAST_FRAME_PATH, FIRST_FRAME_PATH, IMAGES_DIR, SCENE_FILE_FORMAT, AUDIO_LIBRARY, \
+    VIDEO_MAKER, NARRATION_FILE
+from src.blob_paths import BlobPaths
+from src.log import log
 from pydub import AudioSegment
 import soundfile as sf
 import pyloudnorm as pyln
@@ -18,26 +25,9 @@ from src.animax_exception import AnimaxException, BacgkgroundMusicException
 
 from pathlib import Path
 
-# Lib
-LIB_DIRECTORY = Path(os.path.dirname(os.path.dirname(__file__))) / 'lib'
-AUDIO_LIBRARY = LIB_DIRECTORY / 'background_music'
-TRANSITION_SOUND_EFFECT = LIB_DIRECTORY / 'sound FX' / 'Whoosh 08.wav'
-OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
+from src.narrator import Narrator
+from src.script_generator import ScriptGenerator
 
-# Ruby
-RUBY_DIR = LIB_DIRECTORY / 'ruby'
-VIDEO_MAKER = RUBY_DIR / 'make_video.rb'
-SCENE_MAKER = RUBY_DIR / 'make_scene.rb'
-SHARP_CUT_MAKER = RUBY_DIR / 'sharp_cut.rb'
-
-# Current video subdirectory
-OUTPUT_DIR = 'output'
-IMAGES_DIR = 'images'
-SHARP_CUT_FILE_FORMAT = 'sharpcut_{0}_{1}.mp4'
-SCENE_FILE_FORMAT = 'scene{index}.mp4'
-FIRST_FRAME_PATH = 'scene{}_first_frame.jpg'
-LAST_FRAME_PATH = 'scene{}_last_frame.jpg'
-FILE_LIST = 'file_list.txt'
 
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
@@ -61,16 +51,14 @@ class Slide(BaseModel):
 
 
 class VideoMaker:
-    def __init__(self, video_dir: Path, narration_file_path: Path):
+    def __init__(self, video_dir: BlobPaths):
         self.video_dir = video_dir
         self.output_dir: Path = video_dir / OUTPUT_DIR
-        self.narration_file_path = narration_file_path
+        self.video_file_path = self.video_dir / "video.mp4"
+        self.narration_file = self.video_dir / NARRATION_FILE
+
         self.slides = []
         self._generate_slides()
-
-        # TODO
-        video_file_path = video_dir / "video.mp4"
-        self.video_file_path = video_file_path
 
     def make_video(self):
         self.make_scenes()
@@ -120,7 +108,7 @@ class VideoMaker:
                f'--durations "{','.join([str(_) for _ in durations])}" '
                f'--background_music "{background_music}" '
                f'--music-volume-adjustment {volume_adjustment} '
-               f'--narration-audio "{self.narration_file_path}" '
+               f'--narration-audio "{self.narration_file}" '
                f'--transition-sound-effect "{TRANSITION_SOUND_EFFECT}" ' 
                f'--output_file "{self.video_file_path}"')
 
@@ -182,9 +170,9 @@ class VideoMaker:
         # Generating slides with random durations
         # Each slide is an image
 
-        video_duration = self._get_audio_duration(str(self.narration_file_path))
+        video_duration = self._get_audio_duration(str(self.narration_file))
         if video_duration > MAX_VIDEO_DURATION:
-            raise ValueError(f"Video duration is too long - {self.narration_file_path}")
+            raise ValueError(f"Video duration is too long - {self.narration_file}")
 
         scenes = os.listdir(self.video_dir / IMAGES_DIR)
 
