@@ -1,0 +1,7 @@
+file '/Users/roihala/PycharmProjects/anime_video_generator/output/7asBYfAMuiY33pR2Ki/scene0.mp4'
+file '/Users/roihala/PycharmProjects/anime_video_generator/output/7asBYfAMuiY33pR2Ki/sharpcut_0_1.mp4'
+file '/Users/roihala/PycharmProjects/anime_video_generator/output/7asBYfAMuiY33pR2Ki/scene1.mp4'
+file '/Users/roihala/PycharmProjects/anime_video_generator/output/7asBYfAMuiY33pR2Ki/sharpcut_1_2.mp4'
+file '/Users/roihala/PycharmProjects/anime_video_generator/output/7asBYfAMuiY33pR2Ki/scene2.mp4'
+file '/Users/roihala/PycharmProjects/anime_video_generator/output/7asBYfAMuiY33pR2Ki/sharpcut_2_3.mp4'
+file '/Users/roihala/PycharmProjects/anime_video_generator/output/7asBYfAMuiY33pR2Ki/scene3.mp4'

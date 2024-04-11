@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Install git, libgl1-mesa-glx (for OpenCV), libglib2.0-0 (for GLib), and any other dependencies you might need
 RUN apt-get update \
-    && apt-get install -y git libgl1-mesa-glx libglib2.0-0 \
+    && apt-get install -y git libgl1-mesa-glx libglib2.0-0 ffmpeg \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,4 +23,4 @@ EXPOSE 8080
 ENV PORT 8080
 
 # Run uvicorn when the container launches
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]

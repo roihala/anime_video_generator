@@ -5,12 +5,11 @@
 #
 import json
 import os
+import time
+
 from src.log import log
-from io import BytesIO
-from pathlib import Path
 
 import requests
-from pydub import AudioSegment
 
 
 class Narrator:
@@ -64,11 +63,24 @@ class Narrator:
             "AUTHORIZATION": self.play_ht_api_key,
             "X-USER-ID": self.play_ht_userid
         }
+        response = None
 
-        # Send and hope for good
-        response = requests.post(url, json=payload, headers=headers)
-        if not response.status_code == 201:
-            raise ConnectionError(f"Couldn't setup srt file webhook, {response.content}")
+        for _ in range(20):
+            # Send and hope for good
+            response = requests.post(url, json=payload, headers=headers)
+
+            try:
+                if response.status_code == 201:
+                    return
+                elif 'is not complete. Please wait a few moments and try again.' in response.json().get('error_message'):
+                    continue
+                else:
+                    log.info(f'Couldnt setup srt file webhook, {_} tries')
+            except Exception as e:
+                log.error("Error while trying to parse response, failing", e)
+            finally:
+                time.sleep(1)
+        raise ConnectionError(f"Failed setup srt file webhook, {response if response else ''}:{response.content if response else ''}")
 
     # api methods
     def parse_playht_response(self, response_text) -> dict:
