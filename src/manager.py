@@ -70,8 +70,8 @@ class Manager:
         videomaker = VideoMaker(story_id, self.video_dir)
         videomaker.make_video()
         # TODO: apply subtitles
-        # if not DEBUG:
-        #     self._wait_for_captions()
+        if not DEBUG:
+            self._wait_for_captions()
 
         self.upload_dir_to_gcs()
 
@@ -130,6 +130,7 @@ class Manager:
         for attempt in range(18):
             blob = self.bucket.blob(str(Path(self.story_id) / SRT_FILE))
             if blob.exists():
+                log.info(f'{self.story_id}: FOUND CAPTIONS')
                 return blob
             else:
                 time.sleep(10)

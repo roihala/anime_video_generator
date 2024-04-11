@@ -3,6 +3,7 @@
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
+import base64
 import os
 from dotenv import load_dotenv
 
@@ -16,9 +17,8 @@ class ChatGPTSession:
         self._set_system_message(system_message)
         # new
         # TODO: api key
-        self._client = OpenAI(
-            api_key=os.getenv('OPENAI_API_KEY'),  # this is also the default, it can be omitted
-        )
+        decoded_key = base64.b64decode(os.getenv('OPENAI_API_KEY')).decode()
+        self._client = OpenAI(api_key=decoded_key)
         self._chat_log = []
 
     # api methods
