@@ -6,3 +6,6 @@ lib/background_music
 /temp/*
 /lib/sound FX/
 credentials/
+.venv
+output/
+demo_output/
