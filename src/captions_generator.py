@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 from typing import TextIO, Iterator
 
-import assemblyai as aai
-import whisper
+# import assemblyai as aai
+# import whisper
 
 # Replace with your API key
 aai.settings.api_key = "46bc81326eaf4d07977b48a652df2731"

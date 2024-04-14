@@ -6,15 +6,18 @@ WORKDIR /app
 
 # Install git, libgl1-mesa-glx (for OpenCV), libglib2.0-0 (for GLib), and any other dependencies you might need
 RUN apt-get update \
-    && apt-get install -y git libgl1-mesa-glx libglib2.0-0 ffmpeg \
+    && apt-get install -y git libgl1-mesa-glx libglib2.0-0 ffmpeg ruby \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /usr/local/opt/ruby/bin/ \
+    && ln -s /usr/bin/ruby /usr/local/opt/ruby/bin/ruby
 
 # Copy the current directory contents into the container at /app
 COPY . /app
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=300 -r requirements.txt
 
 # Make port 8080 available to the world outside this container
 EXPOSE 8080

@@ -1,7 +1,8 @@
+import traceback
+
 from google.cloud import storage
 import json
 import os
-import orjson
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -13,7 +14,6 @@ from enum import Enum
 from config import SRT_FILE
 from src.log import log
 from src.manager import Manager
-from src.video_maker import VideoMaker
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 app = FastAPI()
@@ -41,15 +41,14 @@ async def story_to_video(request: StoryToVideoRequest):  # The request parameter
         Manager().manage(request.story_images)
         return {"message": "Success", "story_url": request.story_images, "webhook_url": request.webhook_url, "voice": request.voice}
     except Exception as e:
-        log_url_template = "https://console.cloud.google.com/logs/query;query=resource.type%3D\"gae_app\"%20resource.labels.module_id%3D\"{service_id}\"%20resource.labels.version_id%3D\"{version_id}\"?project={project_id}"
-
-        log_url = log_url_template.format(service_id=os.environ.get('GAE_SERVICE'), version_id=os.environ.get('GAE_VERSION'), project_id=os.environ.get('GOOGLE_CLOUD_PROJECT'))
-
-        raise HTTPException(status_code=400, detail=f'Encountered a fatal error, you can see the logs here:\n{log_url}\nerror message: {e}')
+        message = f'Encountered a fatal error: {str(e)} -> {traceback.print_exc()}'
+        log.error(message, e)
+        raise HTTPException(status_code=400, detail=message)
 
 
 @app.post("/transcription_webhook")
 async def transcription_webhook(request: Request):
+    log.info(f'Transcription webhook got request: {request}')
     body = await request.body()
     # Validate that the data structure matches what we expect
     try:

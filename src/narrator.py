@@ -38,9 +38,17 @@ class Narrator:
             "AUTHORIZATION": self.play_ht_api_key,
             "X-USER-ID": self.play_ht_userid
         }
+        for attempt in range(20):
+            try:
+                response = requests.post(url, json=payload, headers=headers)
+                self.narration_response = self.parse_playht_response(response.text)
+                if self.narration_response:
+                    break
+            except Exception as _:
+                continue
+        if not self.narration_response:
+            raise RuntimeError("Couldn't connect to narration API")
 
-        response = requests.post(url, json=payload, headers=headers)
-        self.narration_response = self.parse_playht_response(response.text)
         return self.narration_response.get('id'), self.narration_response.get('url')
 
     def request_transcription(self):

@@ -1,3 +1,4 @@
+import base64
 from google.cloud import storage
 from dotenv import load_dotenv
 
@@ -26,6 +27,15 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
     blob = bucket.blob(destination_blob_name)
 
     blob.upload_from_filename(source_file_name)
+
+def encode_api_key(api_key):
+    # Encode the API key
+    encoded_key = base64.b64encode(api_key.encode())
+    print("Encoded API Key:", encoded_key)
+
+    # Since base64.b64encode() returns a bytes object, you might want to convert it to a string for easier use in headers or URLs
+    encoded_key_str = encoded_key.decode()
+    print("Encoded API Key (str):", encoded_key_str)
 
 
 if __name__ == '__main__':

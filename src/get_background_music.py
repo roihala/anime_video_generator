@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 import freesound
 
-from src.video_maker import LIB_DIRECTORY
+# from src.video_maker import LIB_DIRECTORY
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 
