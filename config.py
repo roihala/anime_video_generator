@@ -8,8 +8,6 @@ load_dotenv()  # This loads the variables from '.env' into the environment
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 BASE_DIR = Path(os.path.dirname(__file__)) / 'output'
-DEMO_DIR_NAME = 'demo_output'
-DEMO_DIR = Path(os.path.dirname(__file__)) / DEMO_DIR_NAME
 VOICE_NAME = 'Adam'
 
 # Lib
@@ -35,5 +33,7 @@ LAST_FRAME_PATH = 'scene{}_last_frame.jpg'
 NARRATION_FILE = "awesome_voice.mp3"
 SRT_FILE = "awesome_voice.srt"
 VIDEO_FILE = 'video-{0}.mp4'
-
 VIDEO_DIR_STRUCTURE = ['images', 'video']
+
+# URLs
+GCS_URL_FORMAT = 'https://storage.googleapis.com/animax_data/{0}'

@@ -2,7 +2,6 @@ import base64
 from google.cloud import storage
 from dotenv import load_dotenv
 
-from config import IMAGES_DIR, DEMO_DIR
 from src.manager import Manager
 
 load_dotenv()  # This loads the variables from '.env' into the environment

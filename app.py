@@ -1,5 +1,7 @@
 import traceback
+from datetime import datetime
 
+import requests
 from google.cloud import storage
 import json
 import os
@@ -28,8 +30,23 @@ class VoiceOption(str, Enum):
 class StoryToVideoRequest(BaseModel):
     story_images: List[HttpUrl] = Query(..., description="An ORDERED list of image URLs")
     script: str = Field(None, description="The script of the story")
-    webhook_url: Optional[HttpUrl] = Field(None, description="The webhook URL to notify when processing is done")
+    callback_url: Optional[HttpUrl] = Field(None, description="The callback URL to notify when processing is done")
     voice: Optional[VoiceOption] = Field(None, description="The voice to be used for narration")
+
+
+@app.get('/test_gcs')
+async def test_gcs():
+    try:
+        payload = 'hello world'
+
+        # Process the transcription part here
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
+        blob = bucket.blob(f'test_gcs-{datetime.now()}')
+        blob.upload_from_string(payload)
+        return {'success': "motherfucker"}
+    except Exception as e:
+        return {'exception': str(e)}
 
 
 @app.post("/story_to_video")  # Note the change to @app.post()
@@ -38,8 +55,17 @@ async def story_to_video(request: StoryToVideoRequest):  # The request parameter
     This function expects a JSON body with a story URL, an optional webhook URL, and an optional voice option to notify when it's done.
     """
     try:
-        Manager().manage(request.story_images)
-        return {"message": "Success", "story_url": request.story_images, "webhook_url": request.webhook_url, "voice": request.voice}
+        # TODO: voice
+        result = Manager().manage(request.story_images)
+        result.update({"message": "Success"})
+
+        try:
+            if request.callback_url:
+                requests.post(request.callback_url, data=result)
+        except Exception as e:
+            log.error("Couldn't post to callback url", e)
+
+        return result
     except Exception as e:
         message = f'Encountered a fatal error: {str(e)} -> {traceback.print_exc()}'
         log.error(message, e)
@@ -65,10 +91,12 @@ async def transcription_webhook(request: Request):
         if transcription:
             log.info(f"Transcription: {transcription}")
 
+
+
             # Process the transcription part here
             storage_client = storage.Client()
             bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
-            blob = bucket.blob(Path(data.get('job_id')) / SRT_FILE)
+            blob = bucket.blob(str(Path(data.get('job_id')) / SRT_FILE))
             blob.upload_from_string(transcription)
             log.info(f"Transcription: {data.get('results').get('transcription')}")
 

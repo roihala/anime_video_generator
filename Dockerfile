@@ -4,26 +4,29 @@ FROM python:3.12-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Install git, libgl1-mesa-glx (for OpenCV), libglib2.0-0 (for GLib), and any other dependencies you might need
+# Install necessary system dependencies
 RUN apt-get update \
-    && apt-get install -y git libgl1-mesa-glx libglib2.0-0 ffmpeg ruby \
+    && apt-get install -y git libgl1-mesa-glx libglib2.0-0 ffmpeg ruby-full build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /usr/local/opt/ruby/bin/ \
-    && ln -s /usr/bin/ruby /usr/local/opt/ruby/bin/ruby
+# Install bundler for Ruby gems
+RUN gem install bundler
 
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir --default-timeout=300 -r requirements.txt
+# Install any needed packages specified in requirements.txt for Python
+RUN pip install --no-cache-dir --default-timeout=1800 -r requirements.txt
 
-# Make port 8080 available to the world outside this container
-EXPOSE 8080
+# Install any needed gems specified in Gemfile for Ruby
+RUN bundle install
 
-# Define environment variable for dynamic port binding by GCP
-ENV PORT 8080
+# Copy the credentials file into the container
+COPY ./credentials/animax-419913-c556959c0ca6.json /secrets/credentials.json
 
-# Run uvicorn when the container launches
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+# Set the environment variable to point to the credentials file
+ENV GOOGLE_APPLICATION_CREDENTIALS /secrets/credentials.json
+
+# Run uvicorn when the container launches for Python app using shell form to allow variable substitution
+CMD uvicorn app:app --host 0.0.0.0 --port $PORT

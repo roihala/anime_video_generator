@@ -12,7 +12,7 @@ import requests
 
 from pydantic import BaseModel
 
-from config import DEMO_DIR, VIDEO_DIR_STRUCTURE, OUTPUT_DIR, SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
+from config import SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
     FILE_LIST, TRANSITION_SOUND_EFFECT, LAST_FRAME_PATH, FIRST_FRAME_PATH, IMAGES_DIR, SCENE_FILE_FORMAT, AUDIO_LIBRARY, \
     VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE
 from src.log import log
@@ -55,7 +55,8 @@ class VideoMaker:
         self.story_id = story_id
         self.video_dir = video_dir
         self.output_dir: Path = video_dir
-        self.video_file_path = video_dir / VIDEO_FILE.format(story_id)
+        self.video_file_name = VIDEO_FILE.format(story_id)
+        self.video_file_path = video_dir / self.video_file_name
         self.narration_file = video_dir / NARRATION_FILE
 
         self.slides = []

@@ -5,8 +5,8 @@ import requests
 
 from google.cloud import storage
 
-from config import VIDEO_DIR_STRUCTURE, OUTPUT_DIR, NARRATION_FILE, DEBUG, DEMO_DIR, BASE_DIR, DEMO_DIR_NAME, \
-    IMAGES_DIR, SRT_FILE
+from config import VIDEO_DIR_STRUCTURE, OUTPUT_DIR, NARRATION_FILE, DEBUG, BASE_DIR, \
+    IMAGES_DIR, SRT_FILE, GCS_URL_FORMAT
 from src.log import log
 
 from pathlib import Path
@@ -27,6 +27,7 @@ class Manager:
 
         storage_client = storage.Client()
         self.bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
+        self.blob_path = None
 
     def manage(self, story_images=None, script=None):
         # The init process of this function is flipped. shoud've created video_dir
@@ -45,7 +46,7 @@ class Manager:
         story_id, narration_url = narrator.narrate('', script)
         narrator.request_transcription()
 
-        self.video_dir = Path(str(BASE_DIR / story_id)) if not DEBUG else Path(DEMO_DIR)
+        self.video_dir = Path(str(BASE_DIR / story_id))
         self.story_id = story_id
 
         if not os.path.exists(self.video_dir):
@@ -57,11 +58,10 @@ class Manager:
 
         self._fetch_narration(narration_url)
         try:
-            if DEBUG:
-                images_dir = DEMO_DIR / IMAGES_DIR
-                self.images = [_ for _ in images_dir.iterdir() if _.is_file()]
-            else:
-                self._fetch_images(story_images)
+            # if DEBUG:
+            #     images_dir = DEMO_DIR / IMAGES_DIR
+            #     self.images = [_ for _ in images_dir.iterdir() if _.is_file()]
+            self._fetch_images(story_images)
         except Exception as e:
             log.error("Couldn't fetch story images, failing", e)
             raise InvalidStoryError("Couldn't fetch story images, failing", e)
@@ -74,6 +74,8 @@ class Manager:
             self._wait_for_captions()
 
         self.upload_dir_to_gcs()
+
+        return {'id': self.story_id, 'video_path': GCS_URL_FORMAT.format(os.path.join(self.story_id, videomaker.video_file_name))}
 
     def _fetch_images(self, story_images):
         for index, image in enumerate(story_images):
@@ -99,11 +101,11 @@ class Manager:
             for file in files:
                 local_file_path = os.path.join(local_dir, file)
                 relative_path = os.path.relpath(local_file_path, self.video_dir)
-                blob_path = os.path.join(self.story_id if not DEBUG else DEMO_DIR_NAME, relative_path)
+                self.blob_path = os.path.join(self.story_id, relative_path)
 
-                blob = self.bucket.blob(blob_path)
+                blob = self.bucket.blob(self.blob_path)
                 blob.upload_from_filename(local_file_path)
-                log.info(f"Uploaded {local_file_path} to {blob_path}")
+                log.info(f"Uploaded {local_file_path} to {self.blob_path}")
 
     def _fetch_image(self, url, index, image_type):
         """Download an image from a URL to a specified save path."""
