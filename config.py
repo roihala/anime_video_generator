@@ -1,3 +1,6 @@
+#
+#
+#
 # config.py
 import os
 from pathlib import Path
@@ -7,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()  # This loads the variables from '.env' into the environment
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
-BASE_DIR = Path(os.path.dirname(__file__)) / 'output'
+BASE_DIR = Path(__file__).parent / 'output'
 VOICE_NAME = 'Adam'
 
 # Lib
@@ -19,6 +22,7 @@ OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
 # Ruby
 RUBY_DIR = LIB_DIRECTORY / 'ruby'
 VIDEO_MAKER = RUBY_DIR / 'make_video.rb'
+BURN_CAPTIONS = RUBY_DIR / 'burn_captions.rb'
 SCENE_MAKER = RUBY_DIR / 'make_scene.rb'
 SHARP_CUT_MAKER = RUBY_DIR / 'sharp_cut.rb'
 FILE_LIST = 'file_list.txt'
@@ -32,6 +36,8 @@ FIRST_FRAME_PATH = 'scene{}_first_frame.jpg'
 LAST_FRAME_PATH = 'scene{}_last_frame.jpg'
 NARRATION_FILE = "awesome_voice.mp3"
 SRT_FILE = "awesome_voice.srt"
+UNCAPTIONED_FILE = 'uncaptioned_video.mp4'
+VIDEO_FOLDER = 'video'
 VIDEO_FILE = 'video-{0}.mp4'
 VIDEO_DIR_STRUCTURE = ['images', 'video']
 

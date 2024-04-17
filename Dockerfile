@@ -1,26 +1,38 @@
-# Use an official Python runtime as a parent image
-FROM python:3.12-slim
+# Use the official Ruby image that supports Ruby 3.3
+FROM ruby:3.3
 
-# Set the working directory in the container
+# Install Python 3 (you might need to specify the version you want)
+RUN apt-get update -yqq && \
+    apt-get install -yqq python3-pip python3-dev python3-venv ffmpeg &&  \
+    apt-get clean
+
+RUN python3 -m venv /app/venv
+
+# Activate virtual environment
+ENV PATH="/app/venv/bin:$PATH"
+
+# Set the working directory in the Docker container
 WORKDIR /app
 
-# Install necessary system dependencies
-RUN apt-get update \
-    && apt-get install -y git libgl1-mesa-glx libglib2.0-0 ffmpeg ruby-full build-essential \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Copy the Gemfile and Gemfile.lock into the image
+COPY Gemfile Gemfile.lock ./
 
-# Install bundler for Ruby gems
-RUN gem install bundler
+# Create an empty data directory
+RUN mkdir -p /app/output
 
-# Copy the current directory contents into the container at /app
+# Install Ruby gems
+RUN gem install bundler -v '2.4.21' && bundle install
+
+# Copy the Python requirements file
+COPY requirements.txt /app
+
+# Install Python packages
+RUN pip3 install --default-timeout=1800 -r requirements.txt
+
+# Copy the rest of your application's code
 COPY . /app
 
-# Install any needed packages specified in requirements.txt for Python
-RUN pip install --no-cache-dir --default-timeout=1800 -r requirements.txt
-
-# Install any needed gems specified in Gemfile for Ruby
-RUN bundle install
+EXPOSE 8000
 
 # Copy the credentials file into the container
 COPY ./credentials/animax-419913-c556959c0ca6.json /secrets/credentials.json
@@ -28,5 +40,5 @@ COPY ./credentials/animax-419913-c556959c0ca6.json /secrets/credentials.json
 # Set the environment variable to point to the credentials file
 ENV GOOGLE_APPLICATION_CREDENTIALS /secrets/credentials.json
 
-# Run uvicorn when the container launches for Python app using shell form to allow variable substitution
+# Command to run your Ruby file (change the filename as needed)
 CMD uvicorn app:app --host 0.0.0.0 --port $PORT

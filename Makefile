@@ -14,18 +14,17 @@ deployment_delete_pods:
 # Target to redeploy by building, pushing and deleting old pods.
 deployment_redeploy: deployment_build_push deployment_delete_pods
 
-heroku_build_push:
+heroku_build:
 	docker build -t registry.heroku.com/stormy-sands-05558/web .
+
+# Target for building Docker image and pushing to Heroku, then releasing it.
+heroku_push_release:
 	heroku container:push web -a stormy-sands-05558
 	heroku container:release web -a stormy-sands-05558
 	heroku apps:info -a stormy-sands-05558
-	heroku logs --tail --app stormy-sands-05558
 
-# Target for building Docker image and pushing to Heroku, then releasing it.
-heroku_release:
-	heroku container:release web -a stormy-sands-05558
-	heroku apps:info -a stormy-sands-05558
+heroku_logs:
 	heroku logs --tail --app stormy-sands-05558
 
 # Target to perform a full redeploy on Heroku.
-heroku_redeploy: heroku_build_push heroku_release
+heroku_redeploy: heroku_build heroku_push_release heroku_logs

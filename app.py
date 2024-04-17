@@ -1,6 +1,9 @@
+import asyncio
 import traceback
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 
+import httpx
 import requests
 from google.cloud import storage
 import json
@@ -9,11 +12,14 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, Depends, Request, HTTPException
+from fastapi import FastAPI, Query, Depends, Request, HTTPException, BackgroundTasks
 from pydantic import BaseModel, HttpUrl, Field
 from enum import Enum
 
+from starlette.background import BackgroundTask
+
 from config import SRT_FILE
+from src.captions_generator import CaptionsGenerator
 from src.log import log
 from src.manager import Manager
 
@@ -49,11 +55,8 @@ async def test_gcs():
         return {'exception': str(e)}
 
 
-@app.post("/story_to_video")  # Note the change to @app.post()
-async def story_to_video(request: StoryToVideoRequest):  # The request parameter is now a Pydantic model, indicating a JSON body
-    """
-    This function expects a JSON body with a story URL, an optional webhook URL, and an optional voice option to notify when it's done.
-    """
+async def process_story_to_video(request: StoryToVideoRequest):
+    result = {}
     try:
         # TODO: voice
         result = Manager().manage(request.story_images)
@@ -69,13 +72,30 @@ async def story_to_video(request: StoryToVideoRequest):  # The request parameter
     except Exception as e:
         message = f'Encountered a fatal error: {str(e)} -> {traceback.print_exc()}'
         log.error(message, e)
-        raise HTTPException(status_code=400, detail=message)
+        result = {"message": message}
+    finally:
+        if not request.callback_url:
+            return
+        async with httpx.AsyncClient() as client:
+            response = await client.post(str(request.callback_url), json=result)
+            print("Webhook response:", response.status_code, response.text)
+
+
+@app.post("/story_to_video")  # Note the change to @app.post()
+async def story_to_video(background_tasks: BackgroundTasks, request: StoryToVideoRequest):  # The request parameter is now a Pydantic model, indicating a JSON body
+    """
+    This function expects a JSON body with a story URL, an optional webhook URL, and an optional voice option to notify when it's done.
+    """
+    task = BackgroundTask(process_story_to_video, request=request)
+    background_tasks.add_task(task)
+    return {"message": "Processing"}
 
 
 @app.post("/transcription_webhook")
 async def transcription_webhook(request: Request):
-    log.info(f'Transcription webhook got request: {request}')
     body = await request.body()
+    log.info(f'Transcription webhook got request: {body}')
+
     # Validate that the data structure matches what we expect
     try:
         data = json.loads(body, strict=False).get('data')
@@ -86,19 +106,14 @@ async def transcription_webhook(request: Request):
 
     try:
         transcription = data.get('results').get('transcription')
-
+        transcription = CaptionsGenerator.generate_highlighted_captions(transcription)
         # Check if the "transcription" part exists and process it accordingly
         if transcription:
-            log.info(f"Transcription: {transcription}")
-
-
-
             # Process the transcription part here
             storage_client = storage.Client()
             bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
             blob = bucket.blob(str(Path(data.get('job_id')) / SRT_FILE))
             blob.upload_from_string(transcription)
-            log.info(f"Transcription: {data.get('results').get('transcription')}")
 
             # Respond that the request was processed successfully
             return {"message": "Transcription processed successfully."}
@@ -106,7 +121,7 @@ async def transcription_webhook(request: Request):
             # If there is no transcription, you might want to return a different message
             return {"message": "No transcription to process."}
     except Exception as e:
-        message = "Couldn't find transcription in request"
+        message = "Couldn't generate transcription srt"
         log.error(message, e)
         raise HTTPException(status_code=400, detail=message)
 

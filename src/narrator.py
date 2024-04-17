@@ -24,7 +24,7 @@ class Narrator:
         """
         url = "https://api.play.ht/api/v2/tts"
 
-        voice_url = "s3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/female-cs/manifest.json"
+        voice_url = "s3://voice-cloning-zero-shot/820da3d2-3a3b-42e7-844d-e68db835a206/sarah/manifest.json"
 
         payload = {
             "text": script,

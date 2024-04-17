@@ -3,7 +3,7 @@ outputs/*
 /.idea
 __pycache__/
 lib/background_music
-/temp/*
+/resources/*
 /lib/sound FX/
 credentials/
 .venv

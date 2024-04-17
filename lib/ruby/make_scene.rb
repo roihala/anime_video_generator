@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 # MIT License - https://github.com/remko/kburns
-
+require 'stringio'
 require 'fastimage'
 require 'optparse'
 require 'ostruct'

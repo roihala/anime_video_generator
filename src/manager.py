@@ -21,7 +21,7 @@ class InvalidStoryError(Exception):
 
 class Manager:
     def __init__(self):
-        self.video_dir: Path = None
+        self.output_dir: Path = None
         self.story_id = None
         self.images = []
 
@@ -46,15 +46,15 @@ class Manager:
         story_id, narration_url = narrator.narrate('', script)
         narrator.request_transcription()
 
-        self.video_dir = Path(str(BASE_DIR / story_id))
+        self.output_dir = Path(str(BASE_DIR / story_id))
         self.story_id = story_id
 
-        if not os.path.exists(self.video_dir):
-            os.makedirs(os.path.join(self.video_dir), exist_ok=True)
+        if not os.path.exists(self.output_dir):
+            os.makedirs(os.path.join(self.output_dir), exist_ok=True)
 
         # Create each subdirectory
         for subdir in VIDEO_DIR_STRUCTURE:
-            os.makedirs(os.path.join(self.video_dir, subdir), exist_ok=True)
+            os.makedirs(os.path.join(self.output_dir, subdir), exist_ok=True)
 
         self._fetch_narration(narration_url)
         try:
@@ -67,11 +67,11 @@ class Manager:
             raise InvalidStoryError("Couldn't fetch story images, failing", e)
 
         log.info("STEP 3 - video")
-        videomaker = VideoMaker(story_id, self.video_dir)
+        videomaker = VideoMaker(story_id, self.output_dir)
         videomaker.make_video()
-        # TODO: apply subtitles
         if not DEBUG:
             self._wait_for_captions()
+            videomaker.burn_captions()
 
         self.upload_dir_to_gcs()
 
@@ -97,10 +97,10 @@ class Manager:
         - source_directory (str): The path to the directory to upload.
         - destination_blob_prefix (str): The prefix to add to blob names in the bucket.
         """
-        for local_dir, _, files in os.walk(self.video_dir):
+        for local_dir, _, files in os.walk(self.output_dir):
             for file in files:
                 local_file_path = os.path.join(local_dir, file)
-                relative_path = os.path.relpath(local_file_path, self.video_dir)
+                relative_path = os.path.relpath(local_file_path, self.output_dir)
                 self.blob_path = os.path.join(self.story_id, relative_path)
 
                 blob = self.bucket.blob(self.blob_path)
@@ -111,7 +111,7 @@ class Manager:
         """Download an image from a URL to a specified save path."""
         with requests.get(url, stream=True) as response:
             response.raise_for_status()
-            local_path = self.video_dir / IMAGES_DIR / f'{index}.{image_type}'
+            local_path = self.output_dir / IMAGES_DIR / f'{index}.{image_type}'
             with open(local_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
@@ -130,12 +130,19 @@ class Manager:
     def _wait_for_captions(self):
         # 18 attempts of 10 seconds = 3minutes
         for attempt in range(18):
-            blob = self.bucket.blob(str(Path(self.story_id) / SRT_FILE))
-            if blob.exists():
-                log.info(f'{self.story_id}: FOUND CAPTIONS')
-                return blob
-            else:
-                time.sleep(10)
+            try:
+                blob = self.bucket.blob(str(Path(self.story_id) / SRT_FILE))
+                if blob.exists():
+                    log.info(f'{self.story_id}: FOUND CAPTIONS')
+                    blob_data = blob.download_as_bytes()
+
+                    with open(str(self.output_dir / SRT_FILE), 'wb') as file:
+                        file.write(blob_data)
+
+                    return blob
+            except Exception as e:
+                log.error("Error when trying to download blob data", e)
+            time.sleep(10)
 
         raise RuntimeError(f"{self.story_id}: Didn't get captions from webhook, failing")
 
@@ -160,7 +167,7 @@ class Manager:
         raise ValueError(f"Failed to fetch content from {narration_url}.")
 
     def _fetch_narration(self, narration_url):
-        local_filename = self.video_dir / NARRATION_FILE
+        local_filename = self.output_dir / NARRATION_FILE
         response = self._wait_for_narration_file(narration_url)
 
         # Raise an exception if the request failed (HTTP error)
