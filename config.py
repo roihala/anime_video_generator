@@ -56,12 +56,17 @@ class CustomLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         return '[ID: %s] %s' % (self.extra['id'], msg), kwargs
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
+if os.getenv('DEBUG'):
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
 
 logger = logging.getLogger("animax-logger")
 logger_with_id = CustomLoggerAdapter(logger, {'id': 'unknown'})

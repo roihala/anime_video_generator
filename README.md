@@ -1,6 +1,37 @@
-# Simple Ai Video Generator
-<img src="cat_playing_cards_dalle_test.jpg" width="250px">
-^^ The amazing Dalle-2 API /s
+# API Documentation
+We expect POST requests, where the keys are passed to request body at:
+ http://34.67.150.35/story_to_video
+### Current keys
+- `story_images: []` - A list of story images
+- `callback_url: str` - A url where the result will be sent to, use https://webhooks.site/ if you need a quick setup
+- `voice: Optional[str]` - A voice name or url supported by play.ht
+  A list of voices can be found here: https://docs.play.ht/reference/api-list-ultra-realistic-voices
+- `prompt: Optional[str]` - The prompt to generate the text from
+### Future keys
+- `background_music: str` - A key or phrase to generate background music from`
+    
+<mark>Note that due to the nature of POC not everything will work correctly, and debugging is based on "id" key of response json</mark>
+### Usage 
+Usage example:
+
+```
+
+curl -X 'POST' \
+  'http://34.67.150.35/story_to_video' \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "story_images": [
+            "https://storage.googleapis.com/public_stories/abc/007.jpg",
+            "https://storage.googleapis.com/public_stories/abc/011.jpg",
+            "https://storage.googleapis.com/public_stories/abc/018.jpg",
+            "https://storage.googleapis.com/public_stories/abc/028.jpg"
+        ],
+        "callback_url": "https://webhook.site/f3fcb54c-24ce-47e6-9a65-663770829de1"
+      }'
+```
+
+
+
 
 ## ANIMAX:
 - using chatgpt for narration

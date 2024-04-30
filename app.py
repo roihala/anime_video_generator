@@ -10,35 +10,19 @@ from google.cloud import storage
 import json
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any, List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Depends, Request, HTTPException, BackgroundTasks
-from pydantic import BaseModel, HttpUrl, Field
-from enum import Enum
 
-from starlette.background import BackgroundTask
 
 from config import SRT_FILE, BASE_DIR, GCS_BUCKET_NAME, logger_with_id
 from src.captions_generator import CaptionsGenerator
 from src.manager import Manager
-
+from src.story_to_video_request import StoryToVideoRequest
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 app = FastAPI()
 
-
-class VoiceOption(str, Enum):
-    male = "male"
-    female = "female"
-    custom = "custom"
-
-
-class StoryToVideoRequest(BaseModel):
-    story_images: List[HttpUrl] = Query(..., description="An ORDERED list of image URLs")
-    script: str = Field(None, description="The script of the story")
-    callback_url: Optional[HttpUrl] = Field(None, description="The callback URL to notify when processing is done")
-    voice: Optional[VoiceOption] = Field(None, description="The voice to be used for narration")
 
 
 @app.get('/test_gcs')
@@ -60,7 +44,7 @@ async def process_story_to_video(request: StoryToVideoRequest):
     result = {}
     try:
         # TODO: voice
-        result = Manager().manage(request.story_images)
+        result = Manager().manage(request)
         result.update({"message": "Success"})
 
         try:

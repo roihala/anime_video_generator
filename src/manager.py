@@ -14,6 +14,7 @@ from pathlib import Path
 
 from src.narrator import Narrator
 from src.script_generator import ScriptGenerator
+from src.story_to_video_request import StoryToVideoRequest
 from src.video_maker import VideoMaker
 
 
@@ -32,21 +33,25 @@ class Manager:
         self.music_bucket = storage_client.bucket(BACKGROUND_MUSIC_BUCKET_NAME)
         self.blob_path = None
 
-    def manage(self, story_images=None, script=None):
+    def manage(self, request: StoryToVideoRequest):
         # The init process of this function is flipped. shoud've created video_dir
         # and fetched story at first. But using story_id obtained from narration for ease
         # BECAUSE WE DON'T HAVE DB
 
+        prompt = request.prompt
+        voice = request.voice
+        story_images = request.story_images
+
         logger_with_id.info("STEP 0 - Prepare images")
 
         logger_with_id.info("STEP 1 - script")
-        script = ScriptGenerator().generate() if not script else script
+        prompt = ScriptGenerator().generate(prompt)
 
         logger_with_id.info("STEP 2 - narration")
 
         narrator = Narrator()
         # TODO: get voice and not ''
-        story_id, narration_url = narrator.narrate('', script)
+        story_id, narration_url = narrator.narrate('', prompt)
         logger_with_id.extra['id'] = story_id
         narrator.request_transcription()
 

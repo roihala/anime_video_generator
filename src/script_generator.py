@@ -14,8 +14,8 @@ class ScriptGenerator:
         self._session = self._prepare_session()
 
     # api methods
-    def generate(self) -> str:
-        description = self._make_description()
+    def generate(self, prompt) -> str:
+        description = self._make_description(prompt)
         if os.getenv('DEBUG'):
             logger_with_id.info(f"DESCRIPTION:\n{description}")
         return description
@@ -24,14 +24,15 @@ class ScriptGenerator:
     def _prepare_session(self):
         return ChatGPTSession(
             """
-You are a professional tiktok creator, you know how to create engaging videos.
+You are a professional YouTube shorts creator, you know how to create engaging videos.
             """
         )
 
-    def _make_description(self) -> str:
+    def _make_description(self, prompt=None) -> str:
+        prompt = prompt if prompt else "Random book"
         return self._session.ask(
-            """
-Write a short random comic book caption
+            f"""
+Write a short description for this comic book: {prompt}
 
 - it should come down to 17-23 seconds length
 - make it sound edgy, spicy and populistic.

@@ -19,17 +19,17 @@ class Narrator:
         self.play_ht_api_key = os.getenv("PLAY_HT_API_KEY")
         self.narration_response = None
 
-    def narrate(self, voice_url: str, script: str) -> (str, str):
+    def narrate(self, voice: str, script: str) -> (str, str):
         """
         https://docs.play.ht/reference/api-generate-audio
         """
         url = "https://api.play.ht/api/v2/tts"
+        voice = 'Adolfo'
 
-        voice_url = "s3://voice-cloning-zero-shot/820da3d2-3a3b-42e7-844d-e68db835a206/sarah/manifest.json"
-
+        # voice = voice if voice else "s3://voice-cloning-zero-shot/820da3d2-3a3b-42e7-844d-e68db835a206/sarah/manifest.json"
         payload = {
             "text": script,
-            "voice": voice_url,
+            "voice": voice,
             "output_format": "mp3",
             "voice_engine": "PlayHT2.0"
         }
@@ -39,16 +39,19 @@ class Narrator:
             "AUTHORIZATION": self.play_ht_api_key,
             "X-USER-ID": self.play_ht_userid
         }
-        for attempt in range(20):
+        response = ''
+        for attempt in range(5):
             try:
                 response = requests.post(url, json=payload, headers=headers)
                 self.narration_response = self.parse_playht_response(response.text)
                 if self.narration_response:
                     break
-            except Exception as _:
+                time.sleep(0.2)
+            except Exception as e:
+                logger_with_id.warning(f"Couldn't get narration response: {response.text} {e}")
                 continue
         if not self.narration_response:
-            raise RuntimeError("Couldn't connect to narration API")
+            raise RuntimeError(f"Couldn't connect to narration API: {response.text}")
 
         return self.narration_response.get('id'), self.narration_response.get('url')
 
