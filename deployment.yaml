@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app
+  name: animax
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
-      app: my-app
+      app: animax
   template:
     metadata:
       labels:
-        app: my-app
+        app: animax
     spec:
       containers:
-      - name: my-app
-        image: gcr.io/animax-419913/my-app:tag
+      - name: animax
+        image: gcr.io/animax-419913/animax:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 80
+        - containerPort: 8080
       imagePullSecrets:
       - name: my-secret
 

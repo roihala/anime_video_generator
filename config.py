@@ -2,7 +2,9 @@
 #
 #
 # config.py
+import logging
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -35,11 +37,31 @@ SCENE_FILE_FORMAT = 'scene{index}.mp4'
 FIRST_FRAME_PATH = 'scene{}_first_frame.jpg'
 LAST_FRAME_PATH = 'scene{}_last_frame.jpg'
 NARRATION_FILE = "awesome_voice.mp3"
+MUSIC_FILE = "awesome_music.{}"
 SRT_FILE = "awesome_voice.srt"
 UNCAPTIONED_FILE = 'uncaptioned_video.mp4'
 VIDEO_FOLDER = 'video'
-VIDEO_FILE = 'video-{0}.mp4'
+VIDEO_FILE = 'video/video-{0}.mp4'
 VIDEO_DIR_STRUCTURE = ['images', 'video']
 
 # URLs
 GCS_URL_FORMAT = 'https://storage.googleapis.com/animax_data/{0}'
+
+# Buckets
+GCS_BUCKET_NAME = 'animax_data'
+BACKGROUND_MUSIC_BUCKET_NAME = 'animax_music'
+
+
+class CustomLoggerAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        return '[ID: %s] %s' % (self.extra['id'], msg), kwargs
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+logger = logging.getLogger("animax-logger")
+logger_with_id = CustomLoggerAdapter(logger, {'id': 'unknown'})

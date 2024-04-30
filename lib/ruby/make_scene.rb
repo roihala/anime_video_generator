@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 # MIT License - https://github.com/remko/kburns
+require 'open3'
 require 'stringio'
 require 'fastimage'
 require 'optparse'
@@ -232,7 +233,7 @@ temp_file = Tempfile.new(['scene', '.mp4'])
 begin
   # Run ffmpeg
   cmd = [
-    "ffmpeg", "-hide_banner", *options.y ? ["-y"] : [],
+    "ffmpeg", "-loglevel", "error", "-hide_banner", *options.y ? ["-y"] : [],
     *slides.map { |s| ["-i", s[:file]] }.flatten,
     "-filter_complex", filter_chains.join(";"),
     "-t", (options.slide_duration_s).to_s,
@@ -244,6 +245,8 @@ begin
 
   ffmpeg_command = [
   "ffmpeg",
+  '-loglevel' ,
+  'error',
   "-i", temp_file.path,
   "-vf", "select='gt(n,0)'",
   "-vsync", "vfr",
@@ -259,3 +262,4 @@ ensure
   temp_file.close!
   temp_file.unlink   # deletes the temp file
 end
+GC.start

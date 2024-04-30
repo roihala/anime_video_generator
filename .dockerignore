@@ -6,3 +6,4 @@ __pycache__
 .pyc
 output/
 demo_output/
+lib/background_music/

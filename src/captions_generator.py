@@ -21,9 +21,9 @@ class CaptionsGenerator:
                 block3 = blocks[i + 2]
 
                 # Create three new blocks, highlighting each word in turn
-                text1 = f"<font color='yellow'>{block1[2]}</font> {block2[2]} {block3[2]}"
-                text2 = f"{block1[2]} <font color='yellow'>{block2[2]}</font> {block3[2]}"
-                text3 = f"{block1[2]} {block2[2]} <font color='yellow'>{block3[2]}</font>"
+                text1 = f'<font color="yellow">{block1[2]}</font> {block2[2]} {block3[2]}'
+                text2 = f'{block1[2]} <font color="yellow">{block2[2]}</font> {block3[2]}'
+                text3 = f'{block1[2]} {block2[2]} <font color="yellow">{block3[2]}</font>'
 
                 for block, text in [(block1, text1), (block2, text2), (block3, text3)]:
                     start_time, end_time = block[1].split(' --> ')

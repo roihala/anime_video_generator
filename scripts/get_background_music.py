@@ -1,10 +1,12 @@
 import os
-
+from google.cloud import storage
 
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
 
 import freesound
+
+from config import LIB_DIRECTORY
 
 # from src.video_maker import LIB_DIRECTORY
 
@@ -80,6 +82,26 @@ class GetBackgroundMusic:
                 except Exception:
                     pass
 
+    @staticmethod
+    def upload_to_gcs():
+        if os.path.exists(str(AUDIO_DIRECTORY_PATH)):
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(os.getenv('BACKGROUND_MUSIC_BUCKET_NAME'))
+            audio_extensions = {'.mp3', '.wav', '.aac', '.m4a', '.flac', '.ogg', '.wma'}
+
+            for filename in os.listdir(str(AUDIO_DIRECTORY_PATH)):
+                local_path = os.path.join(str(AUDIO_DIRECTORY_PATH), filename)
+                file_extension = os.path.splitext(filename)[1]
+
+                # Make sure it's a file and not a directory
+                if os.path.isfile(local_path) and file_extension in audio_extensions:
+                    # Define the blob path in the bucket
+                    blob = bucket.blob(filename)
+                    # Upload the file
+                    blob.upload_from_filename(local_path)
+                    print(f"Uploaded {filename} to gcs")
+
 
 if __name__ == '__main__':
-    GetBackgroundMusic().get()
+    GetBackgroundMusic.upload_to_gcs()
+

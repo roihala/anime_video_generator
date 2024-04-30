@@ -1,4 +1,5 @@
 import asyncio
+import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
@@ -18,10 +19,10 @@ from enum import Enum
 
 from starlette.background import BackgroundTask
 
-from config import SRT_FILE
+from config import SRT_FILE, BASE_DIR, GCS_BUCKET_NAME, logger_with_id
 from src.captions_generator import CaptionsGenerator
-from src.log import log
 from src.manager import Manager
+
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 app = FastAPI()
@@ -47,7 +48,7 @@ async def test_gcs():
 
         # Process the transcription part here
         storage_client = storage.Client()
-        bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
+        bucket = storage_client.bucket(GCS_BUCKET_NAME)
         blob = bucket.blob(f'test_gcs-{datetime.now()}')
         blob.upload_from_string(payload)
         return {'success': "motherfucker"}
@@ -66,12 +67,12 @@ async def process_story_to_video(request: StoryToVideoRequest):
             if request.callback_url:
                 requests.post(request.callback_url, data=result)
         except Exception as e:
-            log.error("Couldn't post to callback url", e)
+            logger_with_id.error(f"Couldn't post to callback url: {str(e)} -> {traceback.print_exc()}")
 
         return result
     except Exception as e:
         message = f'Encountered a fatal error: {str(e)} -> {traceback.print_exc()}'
-        log.error(message, e)
+        logger_with_id.error(message)
         result = {"message": message}
     finally:
         if not request.callback_url:
@@ -86,32 +87,36 @@ async def story_to_video(background_tasks: BackgroundTasks, request: StoryToVide
     """
     This function expects a JSON body with a story URL, an optional webhook URL, and an optional voice option to notify when it's done.
     """
-    task = BackgroundTask(process_story_to_video, request=request)
-    background_tasks.add_task(task)
+    background_tasks.add_task(process_story_to_video, request=request)
     return {"message": "Processing"}
 
 
 @app.post("/transcription_webhook")
 async def transcription_webhook(request: Request):
     body = await request.body()
-    log.info(f'Transcription webhook got request: {body}')
+    logger_with_id.info(f'Transcription webhook got request: {body}')
 
     # Validate that the data structure matches what we expect
     try:
         data = json.loads(body, strict=False).get('data')
     except Exception as e:
         message = "Couldn't parse request body"
-        log.error(message, e)
+        logger_with_id.error(message)
         raise HTTPException(status_code=400, detail=message)
 
     try:
         transcription = data.get('results').get('transcription')
         transcription = CaptionsGenerator.generate_highlighted_captions(transcription)
-        # Check if the "transcription" part exists and process it accordingly
+
         if transcription:
+            video_dir = BASE_DIR / data.get('job_id')
+            if not os.path.exists(str(video_dir)):
+                os.makedirs(video_dir)
+            with open(str(video_dir / SRT_FILE), 'w') as f:
+                f.write(transcription)
             # Process the transcription part here
             storage_client = storage.Client()
-            bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
+            bucket = storage_client.bucket(GCS_BUCKET_NAME)
             blob = bucket.blob(str(Path(data.get('job_id')) / SRT_FILE))
             blob.upload_from_string(transcription)
 
@@ -119,10 +124,12 @@ async def transcription_webhook(request: Request):
             return {"message": "Transcription processed successfully."}
         else:
             # If there is no transcription, you might want to return a different message
-            return {"message": "No transcription to process."}
+            message = "No transcription to process."
+            logger_with_id.warning(message)
+            return {"message": message}
     except Exception as e:
         message = "Couldn't generate transcription srt"
-        log.error(message, e)
+        logger_with_id.error(message + f'{str(e)} -> {traceback.print_exc()}')
         raise HTTPException(status_code=400, detail=message)
 
 

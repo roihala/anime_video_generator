@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-
+require 'open3'
 require 'fastimage'
 require 'optparse'
 require 'ostruct'
@@ -72,7 +72,9 @@ temp_file = Tempfile.new(['no_audio', '.mp4'])
 begin
   # Concats all scenes without audio
   ffmpeg_command = [
-    'ffmpeg', # The command to run ffmpeg
+    'ffmpeg',
+    '-loglevel' ,
+    'error',
     '-f', 'concat', # Specifies the input format as 'concat'
     '-safe', '0',
     '-i', "#{options[:file_list]}",
@@ -80,26 +82,29 @@ begin
     '-y',
     temp_file.path
   ]
-  puts "Executing command:\n#{ffmpeg_command.join(' ')}"
+  puts "Executing command:#{ffmpeg_command.join(' ')}"
   system(*ffmpeg_command)
 
   ffmpeg_command = [
     'ffmpeg',
+    '-loglevel' ,
+    'error',
     '-i', temp_file.path,
     '-i', options[:background_music],
     '-i', options[:narration_audio],
     '-i', options[:transition_sound_effect],
-    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{durations[0] * 1000}|#{durations[0] * 1000},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{durations.take(2 + 1).sum * 1000}|#{durations.take(2 + 1).sum * 1000},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{durations.take(4 + 1).sum * 1000}|#{durations.take(4 + 1).sum * 1000},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
+    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{durations[0] * 1000}|#{durations[0] * 1000},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{durations.take(2 + 1).sum * 1000}|#{durations.take(2 + 1).sum * 1000},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{durations.take(4 + 1).sum * 1000}|#{durations.take(4 + 1).sum * 1000},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
     '-map', '[v0]',
     '-map', '[a]',
     '-y',
     '-c:v', 'libx264',
     options[:output_file]
   ]
-  puts "Executing command:\n#{ffmpeg_command.join(' ')}"
+  puts "Executing command:#{ffmpeg_command.join(' ')}"
   system(*ffmpeg_command)
 ensure
   # Close and delete the temporary file
   temp_file.close!
   temp_file.unlink   # deletes the temp file
 end
+GC.start

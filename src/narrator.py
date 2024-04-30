@@ -6,10 +6,11 @@
 import json
 import os
 import time
-
-from src.log import log
+import traceback
 
 import requests
+
+from config import logger_with_id
 
 
 class Narrator:
@@ -83,12 +84,12 @@ class Narrator:
                 elif 'is not complete. Please wait a few moments and try again.' in response.json().get('error_message'):
                     continue
                 else:
-                    log.info(f'Couldnt setup srt file webhook, {_} tries')
+                    logger_with_id.info(f'Couldnt setup srt file webhook, {_} tries')
             except Exception as e:
-                log.error("Error while trying to parse response, failing", e)
+                logger_with_id.error(f"Error while trying to parse response, failing: {str(e)} -> {traceback.print_exc()}")
             finally:
-                time.sleep(1)
-        raise ConnectionError(f"Failed setup srt file webhook, {response if response else ''}:{response.content if response else ''}")
+                time.sleep(3)
+        raise ConnectionError(f"Failed to request srt file, {response if response else ''}:{response.content if response else ''}")
 
     # api methods
     def parse_playht_response(self, response_text) -> dict:
@@ -101,4 +102,4 @@ class Narrator:
             if last_response.split('\r\n')[0].strip('event: ') == 'completed':
                 return json.loads(last_response.split('\r\n')[-1].lstrip('data: '))
         except Exception as e:
-            log.error(f"Couldn't parse playht response: {response_text}", e)
+            logger_with_id.error(f"Couldn't parse playht response: {response_text}: {str(e)} -> {traceback.print_exc()}")

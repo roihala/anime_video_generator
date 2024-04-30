@@ -15,23 +15,18 @@ from pydantic import BaseModel
 
 from config import SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
     FILE_LIST, TRANSITION_SOUND_EFFECT, LAST_FRAME_PATH, FIRST_FRAME_PATH, IMAGES_DIR, SCENE_FILE_FORMAT, AUDIO_LIBRARY, \
-    VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, VIDEO_FOLDER, SRT_FILE
-from src.log import log
+    VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, VIDEO_FOLDER, SRT_FILE, MUSIC_FILE, \
+    logger_with_id
 from pydub import AudioSegment
 import soundfile as sf
 import pyloudnorm as pyln
 from types import SimpleNamespace
 from src.animax_exception import AnimaxException, BacgkgroundMusicException
 from google.cloud import storage
-
 from pathlib import Path
 
-from src.narrator import Narrator
-from src.script_generator import ScriptGenerator
-
-
 # Default target loudness, in decibels
-DEFAULT_TARGET_LOUDNESS = -3
+DEFAULT_TARGET_LOUDNESS = -8
 SCALE_MODES = ['pad', 'pan']
 
 
@@ -39,6 +34,7 @@ SCALE_MODES = ['pad', 'pan']
 FRAME_DURATION = 1 / 60
 SHARP_CUT_FRAME_DURATION = 12
 MAX_VIDEO_DURATION = 30
+
 
 class Slide(BaseModel):
     index: int
@@ -52,12 +48,13 @@ class Slide(BaseModel):
 
 
 class VideoMaker:
-    def __init__(self, story_id, output_dir: Path):
+    def __init__(self, story_id, output_dir: Path, music_file: Path):
+        self.music_file = music_file
         self.story_id = story_id
         self.output_dir = output_dir
         self.output_dir: Path = output_dir
         self.video_file_name = VIDEO_FILE.format(story_id)
-        self.video_file_path = output_dir / VIDEO_FOLDER / self.video_file_name
+        self.video_file_path = output_dir / self.video_file_name
         self.narration_file = output_dir / NARRATION_FILE
 
         self.slides = []
@@ -70,13 +67,13 @@ class VideoMaker:
 
     def burn_captions(self):
         cmd = [f'ruby', f'{BURN_CAPTIONS}',
-               f'--input-file', f'{self.output_dir / FILE_LIST}',
+               f'--input-file', f'{self.output_dir / UNCAPTIONED_FILE}',
                f'--srt-file', f'{self.output_dir / SRT_FILE}',
-               f'--output_file', f'"{self.video_file_path}"']
+               f'--output_file', f'{self.video_file_path}']
 
-        log.info(f'ruby command {" ".join(cmd)}')
+        logger_with_id.info(f'ruby command {" ".join(cmd)}')
         result = subprocess.run(cmd, capture_output=True, text=True)
-        log.info(f"Command output: {result.stdout}|{result.stderr}")
+        logger_with_id.info(f"Command output: {result.stderr}")
 
     def make_scenes(self):
         for i, slide in enumerate(self.slides):
@@ -84,9 +81,9 @@ class VideoMaker:
                 f'ruby', f'{SCENE_MAKER}', f'{slide.img_path}', f'{slide.scene_path}', f'--slide-duration={slide.scene_duration}',
                 f'--zoom-rate=0.1', '--zoom-direction=random', f'--scale-mode={random.choice(SCALE_MODES)}', '-y']
 
-            log.info(f'ruby command {" ".join(cmd)}')
+            logger_with_id.info(f'ruby command {" ".join(cmd)}')
             result = subprocess.run(cmd, capture_output=True, text=True)
-            log.info(f"Command output: {result.stdout}|{result.stderr}")
+            logger_with_id.info(f"Command output: {result.stderr}")
 
     def make_transitions(self):
         for i, slide in enumerate(self.slides[0:-1]):
@@ -97,9 +94,9 @@ class VideoMaker:
             # This calculation is specifically for sharp cut, other transitions will have to be calculated differently
             slide.transition_duration = (FRAME_DURATION * SHARP_CUT_FRAME_DURATION)
             cmd = [f'ruby', f'{SHARP_CUT_MAKER}', f'{last_frame}', f'{first_frame}', f'{slide.transition_path}']
-            log.info(f'ruby command {" ".join(cmd)}')
+            logger_with_id.info(f'ruby command {" ".join(cmd)}')
             result = subprocess.run(cmd, capture_output=True, text=True)
-            log.info(f"Command output: {result.stdout}|{result.stderr}")
+            logger_with_id.info(f"Command output: {result.stderr}")
 
     def connect_all(self):
         # Generate the necessary attributes for the ruby file:
@@ -115,30 +112,30 @@ class VideoMaker:
                     file.write(f"file '{slide.transition_path}'\n")
                     durations.append(slide.transition_duration)
 
-        background_music, volume_adjustment = self._get_background_audio(sum(durations))
+        volume_adjustment = self._get_background_audio_volume_adjustment(str(self.music_file))
 
         cmd = [f'ruby',
                f'{VIDEO_MAKER}',
                f'--file_list', f'{self.output_dir / FILE_LIST}',
                f'--durations', f'"{",".join([str(_) for _ in durations])}"',
-               f'--background_music', f'{background_music}',
+               f'--background_music', f'{self.music_file}',
                f'--music-volume-adjustment', f'{volume_adjustment}',
                f'--narration-audio', f'{self.narration_file}',
                f'--transition-sound-effect', f'{TRANSITION_SOUND_EFFECT}',
                f'--output_file', f'{self.output_dir / UNCAPTIONED_FILE}']
 
-        log.info(f'ruby command {" ".join(cmd)}')
+        logger_with_id.info(f'ruby command {" ".join(cmd)}')
         result = subprocess.run(cmd, capture_output=True, text=True)
-        log.info(f"Command output: {result.stdout}|{result.stderr}")
+        logger_with_id.info(f"Command output: {result.stderr}")
 
     def sharp_cut(self, images):
         images_string = " ".join(images)
         transition_file_path = os.path.join(self.output_dir, 'sharp_cut.mp4')
         cmd = [f'ruby', f'{SHARP_CUT_MAKER}', f'{images_string}', f'{transition_file_path}']
 
-        log.info(f'ruby command {" ".join(cmd)}')
+        logger_with_id.info(f'ruby command {" ".join(cmd)}')
         result = subprocess.run(cmd, capture_output=True, text=True)
-        log.info(f"Command output: {result.stdout}|{result.stderr}")
+        logger_with_id.info(f"Command output: {result.stderr}")
 
     def extract_frame(self, slide: Slide, is_last=True):
         # if not is_last - will extract first frame
@@ -147,7 +144,7 @@ class VideoMaker:
         cap = cv2.VideoCapture(str(video_path))
         # Check if video opened successfully
         if not cap.isOpened():
-            log.warning("Error opening video file", None)
+            logger_with_id.warning("Error opening video file")
             return
         if is_last:
             image_path = self.output_dir / LAST_FRAME_PATH.format(slide.index)
@@ -175,7 +172,7 @@ class VideoMaker:
                 slide.first_frame_path = image_path
             return image_path
         else:
-            log.warning("Error extracting the last frame", None)
+            logger_with_id.warning("Error extracting the last frame")
 
         # Release the video capture object
         cap.release()
@@ -207,22 +204,8 @@ class VideoMaker:
         audio_object = AudioSegment.from_file(mp3_audio_file_path, format="mp3")
         return audio_object.duration_seconds
 
-    def _get_background_audio(self, video_duration: int) -> (str, float):
-        """
-        :param video_duration:
-        :return: file_path, volume to adjust in decibels
-        """
-        for _ in range(10):
-            try:
-                random_path = os.path.join(AUDIO_LIBRARY, random.choice(os.listdir(AUDIO_LIBRARY)))
-                audio = AudioSegment.from_file(random_path)
-                if audio.duration_seconds >= video_duration:
-                    return random_path, self._get_background_audio_volume_adjustment(random_path)
-            except Exception as e:
-                log.warning(f"Couldn't fetch background audio in {random_path if 'random_path' in locals() else _}", e)
-        raise BacgkgroundMusicException("Couldn't find background music")
-
-    def _get_background_audio_volume_adjustment(self, file_path) -> float:
+    @staticmethod
+    def _get_background_audio_volume_adjustment(file_path: str) -> float:
         # measure_loudness
         data, rate = sf.read(file_path)  # Read audio file
 

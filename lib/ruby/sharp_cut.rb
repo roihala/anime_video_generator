@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-
+require 'open3'
 require 'fastimage'
 require 'optparse'
 require 'ostruct'
@@ -18,6 +18,8 @@ begin
   # This command generates a long video with a sharp cut, which will be trimmed next
   ffmpeg_command = [
     'ffmpeg',
+    '-loglevel' ,
+    'error',
     '-loop', '1',
     '-t', '5',
     '-i', first_image,
@@ -34,13 +36,15 @@ begin
   ]
 
   # Debugging: Print the command to be executed
-  puts "Executing command:\n#{ffmpeg_command.join(' ')}"
+  puts "Executing command:#{ffmpeg_command.join(' ')}"
 
   # Execute the command
   system(*ffmpeg_command)
 
   ffmpeg_trim = [
   'ffmpeg',
+  '-loglevel' ,
+  'error',
   '-i',
   temp_file.path,
   '-ss',
@@ -52,7 +56,7 @@ begin
 ]
 
   # Debugging: Print the command to be executed
-  puts "Executing command:\n#{ffmpeg_trim.join(' ')}"
+  puts "Executing command:#{ffmpeg_trim.join(' ')}"
 
   # Execute the command
   system(*ffmpeg_trim)
@@ -61,3 +65,4 @@ ensure
   temp_file.close!
   temp_file.unlink   # deletes the temp file
 end
+GC.start

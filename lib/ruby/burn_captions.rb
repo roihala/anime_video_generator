@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-
+require 'open3'
 require 'fastimage'
 require 'optparse'
 require 'ostruct'
@@ -7,8 +7,8 @@ require 'open3'
 require 'tempfile'
 
 options = {
-  input_file: nil # Added output_file option
-  output_file: nil # Added output_file option
+  input_file: nil,
+  output_file: nil,
   srt_file: nil
 }
 
@@ -29,11 +29,14 @@ end.parse!
 # #############################################################################
 ffmpeg_command = [
   'ffmpeg',
+  '-loglevel',
+  'error',
   '-i', options[:input_file],
   '-vf', "subtitles=#{options[:srt_file]}:force_style='FontName=Arial,FontSize=24,PrimaryColour=&H00ff00'",
   '-codec:a', 'copy',
   '-y',
   options[:output_file]
 ]
-puts "Executing command:\n#{ffmpeg_command.join(' ')}"
+puts "Executing command:#{ffmpeg_command.join(' ')}"
 system(*ffmpeg_command)
+GC.start
