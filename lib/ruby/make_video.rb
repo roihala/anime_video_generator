@@ -24,7 +24,9 @@ OptionParser.new do |opts|
   end
 
   opts.on("--durations DURATIONS", "List of durations matching the file list, separated by comma") do |durations|
-    options[:durations] = durations.split(',').map(&:to_f)
+    options[:durations] = durations.split(',').map do |dur|
+      dur.to_f
+    end
   end
 
   opts.on("--background-music MUSIC", "Background music file") do |music|
@@ -57,7 +59,6 @@ if files.size != durations.size
   puts "Warning: The number of files and durations does not match. Please ensure each file has a corresponding duration."
   exit
 end
-
 # Combine files with their durations
 files_with_durations = files.zip(durations)
 
@@ -73,8 +74,8 @@ begin
   # Concats all scenes without audio
   ffmpeg_command = [
     'ffmpeg',
-    '-loglevel' ,
-    'error',
+#     '-loglevel' ,
+#     'error',
     '-f', 'concat', # Specifies the input format as 'concat'
     '-safe', '0',
     '-i', "#{options[:file_list]}",
@@ -84,6 +85,7 @@ begin
   ]
   puts "Executing command:#{ffmpeg_command.join(' ')}"
   system(*ffmpeg_command)
+  puts "Kaki: #{durations} #{durations.sum}"
 
   ffmpeg_command = [
     'ffmpeg',
@@ -93,7 +95,8 @@ begin
     '-i', options[:background_music],
     '-i', options[:narration_audio],
     '-i', options[:transition_sound_effect],
-    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{durations[0] * 1000}|#{durations[0] * 1000},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{durations.take(2 + 1).sum * 1000}|#{durations.take(2 + 1).sum * 1000},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{durations.take(4 + 1).sum * 1000}|#{durations.take(4 + 1).sum * 1000},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
+    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{(durations[0] * 1000 - 300)}|#{(durations[0] * 1000 - 300)},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{(durations.take(2 + 1).sum * 1000 - 300)}|#{(durations.take(2 + 1).sum * 1000 - 300)},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{(durations.take(4 + 1).sum * 1000 - 300)}|#{(durations.take(4 + 1).sum * 1000 - 300)},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
+#     '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{(durations[0] * 1000) - 300}|#{(durations[0] * 1000) - 300},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{durations.take(2 + 1).sum * 1000}|#{durations.take(2 + 1).sum * 1000},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{durations.take(4 + 1).sum * 1000}|#{durations.take(4 + 1).sum * 1000},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
     '-map', '[v0]',
     '-map', '[a]',
     '-y',

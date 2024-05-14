@@ -15,14 +15,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Depends, Request, HTTPException, BackgroundTasks
 
 
-from config import SRT_FILE, BASE_DIR, GCS_BUCKET_NAME, logger_with_id
+from config import SRT_FILE, BASE_DIR, GCS_BUCKET_NAME, logger_with_id, set_logger
 from src.captions_generator import CaptionsGenerator
 from src.manager import Manager
 from src.story_to_video_request import StoryToVideoRequest
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 app = FastAPI()
-
+set_logger()
 
 
 @app.get('/test_gcs')

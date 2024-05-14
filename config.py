@@ -21,6 +21,7 @@ LIB_DIRECTORY = Path(os.path.dirname(__file__)) / 'lib'
 AUDIO_LIBRARY = LIB_DIRECTORY / 'background_music'
 TRANSITION_SOUND_EFFECT = LIB_DIRECTORY / 'sound FX' / 'Whoosh Sound Effect 01.mp3'
 OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
+TOONTUBE_LOGO = LIB_DIRECTORY / 'assets' / 'black_logo.mp4'
 
 # Ruby
 RUBY_DIR = LIB_DIRECTORY / 'ruby'
@@ -57,22 +58,40 @@ class CustomLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         return '[ID: %s] %s' % (self.extra['id'], msg), kwargs
 
+    def get_id(self):
+        return self.extra['id']
 
-def setup_logging():
-    if os.getenv('DEBUG'):
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-    else:
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler(sys.stdout)]
-        )
-    logger = logging.getLogger("animax-logger")
-    logger_with_id = CustomLoggerAdapter(logger, {'id': 'unknown'})
+
+# Singleton storage
+logger_with_id = None
+
+
+def set_logger(_id='unknown'):
+    global logger_with_id
+
+    if logger_with_id:
+        print('kaki', logger_with_id.get_id(), _id)
+
+    if logger_with_id is None or logger_with_id.get_id() != _id:
+
+        # Initialize logging only once
+        if os.getenv('DEBUG'):
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s'
+            )
+        else:
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                handlers=[logging.StreamHandler(sys.stdout)]
+            )
+
+        # Create a logger instance only once
+        logger = logging.getLogger("animax-logger")
+        logger_with_id = CustomLoggerAdapter(logger, {'id': _id})
+
     return logger_with_id
 
 
-logger_with_id = setup_logging()
+logger_with_id = set_logger()

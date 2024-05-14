@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from config import SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
     FILE_LIST, TRANSITION_SOUND_EFFECT, LAST_FRAME_PATH, FIRST_FRAME_PATH, IMAGES_DIR, SCENE_FILE_FORMAT, AUDIO_LIBRARY, \
     VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, VIDEO_FOLDER, SRT_FILE, MUSIC_FILE, \
-    logger_with_id
+    logger_with_id, DEBUG, TOONTUBE_LOGO
 from pydub import AudioSegment
 import soundfile as sf
 import pyloudnorm as pyln
@@ -38,9 +38,9 @@ MAX_VIDEO_DURATION = 30
 
 class Slide(BaseModel):
     index: int
-    img_path: Path
     scene_path: Path
     scene_duration: float
+    img_path: Path = None
     transition_path: Path = None
     transition_duration: float = None
     first_frame_path: Path = None
@@ -48,7 +48,7 @@ class Slide(BaseModel):
 
 
 class VideoMaker:
-    def __init__(self, story_id, output_dir: Path, music_file: Path):
+    def __init__(self, story_id, output_dir: Path, music_file: Path, slides=None):
         self.music_file = music_file
         self.story_id = story_id
         self.output_dir = output_dir
@@ -58,11 +58,19 @@ class VideoMaker:
         self.narration_file = output_dir / NARRATION_FILE
 
         self.slides = []
-        self._generate_slides()
+        if slides and DEBUG:
+            self.slides = slides
+        else:
+            self._generate_slides()
 
     def make_video(self):
         self.make_scenes()
         self.make_transitions()
+        # Adding toontube logo slide
+        self.slides.append(
+            Slide(index=len(self.slides),
+                  scene_path=TOONTUBE_LOGO,
+                  scene_duration=2.0))
         self.connect_all()
 
     def burn_captions(self):
@@ -113,11 +121,10 @@ class VideoMaker:
                     durations.append(slide.transition_duration)
 
         volume_adjustment = self._get_background_audio_volume_adjustment(str(self.music_file))
-
         cmd = [f'ruby',
                f'{VIDEO_MAKER}',
                f'--file_list', f'{self.output_dir / FILE_LIST}',
-               f'--durations', f'"{",".join([str(_) for _ in durations])}"',
+               f'--durations', f'{",".join([str(_) for _ in durations])}',
                f'--background_music', f'{self.music_file}',
                f'--music-volume-adjustment', f'{volume_adjustment}',
                f'--narration-audio', f'{self.narration_file}',
@@ -126,7 +133,7 @@ class VideoMaker:
 
         logger_with_id.info(f'ruby command {" ".join(cmd)}')
         result = subprocess.run(cmd, capture_output=True, text=True)
-        logger_with_id.info(f"Command output: {result.stderr}")
+        logger_with_id.info(f"Command output: {result.stderr} ||| {result.stdout}")
 
     def sharp_cut(self, images):
         images_string = " ".join(images)
@@ -191,7 +198,7 @@ class VideoMaker:
         # Randomly disparse scene durations
         durations = [random.random() for _ in range(len(scenes))]
         durations = [d / sum(durations) * video_duration for d in durations]
-
+        i = 0
         for i in range(len(scenes)):
             self.slides.append(
                 Slide(index=i,

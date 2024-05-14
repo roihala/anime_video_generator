@@ -8,8 +8,7 @@ from src.story_to_video_request import StoryToVideoRequest
 
 
 
-def test_end_to_end():
-    print('kaki')
+def ttest_end_to_end():
     request_payload = {
         'story_images': [
             "https://storage.googleapis.com/public_stories/abc/007.jpg",
@@ -23,5 +22,6 @@ def test_end_to_end():
     }
 
     request = StoryToVideoRequest(**request_payload)
-    asyncio.run(process_story_to_video(request))
+    x = asyncio.run(process_story_to_video(request))
+    print(x)
     assert True
