@@ -74,7 +74,6 @@ class Manager:
         except Exception as e:
             logger_with_id.error(f"Couldn't fetch story images, failing: {str(e)} -> {traceback.print_exc()}")
             raise InvalidStoryError("Couldn't fetch story images, failing", e)
-
         logger_with_id.info("STEP 3 - video")
         music_file = self._fetch_random_music()
         videomaker = VideoMaker(story_id, self.output_dir, music_file)

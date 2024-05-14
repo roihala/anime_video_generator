@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
 from dotenv import load_dotenv
 
 load_dotenv()  # This loads the variables from '.env' into the environment
@@ -56,17 +57,22 @@ class CustomLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         return '[ID: %s] %s' % (self.extra['id'], msg), kwargs
 
-if os.getenv('DEBUG'):
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
-else:
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler(sys.stdout)]
-    )
 
-logger = logging.getLogger("animax-logger")
-logger_with_id = CustomLoggerAdapter(logger, {'id': 'unknown'})
+def setup_logging():
+    if os.getenv('DEBUG'):
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
+    else:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[logging.StreamHandler(sys.stdout)]
+        )
+    logger = logging.getLogger("animax-logger")
+    logger_with_id = CustomLoggerAdapter(logger, {'id': 'unknown'})
+    return logger_with_id
+
+
+logger_with_id = setup_logging()
