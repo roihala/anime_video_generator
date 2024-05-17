@@ -8,7 +8,7 @@ import pytest
 
 from app import process_story_to_video
 from src.manager import Manager
-from src.story_to_video_request import StoryToVideoRequest
+from src.pydantic_models.story_to_video_request import StoryToVideoRequest
 from src.video_maker import VideoMaker
 from tests.test_app import toontube_stories, get_random_voice
 

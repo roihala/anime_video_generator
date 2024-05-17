@@ -20,7 +20,8 @@ import config
 from config import SRT_FILE, BASE_DIR, GCS_BUCKET_NAME, logger
 from src.captions_generator import CaptionsGenerator
 from src.manager import Manager
-from src.story_to_video_request import StoryToVideoRequest
+from src.pydantic_models.story_to_video_request import StoryToVideoRequest
+
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 app = FastAPI()

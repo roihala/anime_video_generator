@@ -7,6 +7,9 @@ import os
 import random
 import subprocess
 import time
+from asyncio import as_completed
+from concurrent.futures import ThreadPoolExecutor
+from typing import List
 
 import cv2
 import requests
@@ -22,6 +25,7 @@ import soundfile as sf
 import pyloudnorm as pyln
 from pathlib import Path
 
+from src.pydantic_models.process_ruby import ProcessRubyRequest
 
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
@@ -120,8 +124,6 @@ class VideoMaker:
             logger.warning(f"Command failed: {result.stdout} | {result.stderr}")
         elif verbose:
             logger.warning(f"Command output: {result.stdout}")
-
-
 
     def connect_all(self):
         # Generate the necessary attributes for the ruby file:
