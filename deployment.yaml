@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: animax
 spec:
-  replicas: 2
+  replicas: 5
   selector:
     matchLabels:
       app: animax
@@ -14,10 +14,10 @@ spec:
     spec:
       containers:
       - name: animax
-        image: gcr.io/animax-419913/animax:latest
+        image: gcr.io/animax-423606/animax:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
-#      imagePullSecrets:
-#      - name: my-secret
+      imagePullSecrets:
+      - name: gcr-json-key
 

@@ -67,7 +67,8 @@ class Manager:
 
         self.output_dir = Path(str(BASE_DIR / story_id))
         self.story_id = story_id
-
+        # kaki
+        self.upload_dir_to_gcs()
         if not os.path.exists(self.output_dir):
             os.makedirs(os.path.join(self.output_dir), exist_ok=True)
 

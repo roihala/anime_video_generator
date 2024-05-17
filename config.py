@@ -19,7 +19,7 @@ VOICE_NAME = 'Adam'
 # Lib
 LIB_DIRECTORY = Path(os.path.dirname(__file__)) / 'lib'
 AUDIO_LIBRARY = LIB_DIRECTORY / 'background_music'
-TRANSITION_SOUND_EFFECT = LIB_DIRECTORY / 'sound FX' / 'Whoosh Sound Effect 01.mp3'
+TRANSITION_SOUND_EFFECT = LIB_DIRECTORY / 'sound FX' / 'whoosh_sound.mp3'
 OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
 TOONTUBE_LOGO = LIB_DIRECTORY / 'assets' / 'black_logo.mp4'
 VOICES_JSON = LIB_DIRECTORY / 'assets' / 'voices.json'
@@ -52,8 +52,8 @@ VIDEO_DIR_STRUCTURE = ['images', 'video']
 GCS_URL_FORMAT = 'https://storage.googleapis.com/animax_data/{0}'
 
 # Buckets
-GCS_BUCKET_NAME = 'animax_data'
-BACKGROUND_MUSIC_BUCKET_NAME = 'animax_music'
+GCS_BUCKET_NAME = 'animax_data1'
+BACKGROUND_MUSIC_BUCKET_NAME = 'animax_music1'
 
 # Logic
 MINIMUM_SCENES = 4

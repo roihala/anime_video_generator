@@ -3,8 +3,8 @@
 
 # Target for building, pushing the Docker image, and applying the Kubernetes deployment.
 deployment_build_push:
-	docker build -t gcr.io/animax-419913/animax:latest .
-	docker push gcr.io/animax-419913/animax:latest
+	docker build -t gcr.io/animax-423606/animax:latest .
+	docker push gcr.io/animax-423606/animax:latest
 	kubectl apply -f deployment.yaml
 
 # Target for deleting pods based on a label selector.

@@ -35,7 +35,7 @@ def test_toontube():
             payload['voice'] = get_random_voice()
             payload['story_images'] = [story]
             logger.info(f"Posting with payload: {payload}")
-            requests.post('http://34.67.150.35/story_to_video', json=payload, headers=headers)
+            requests.post('http://104.155.194.43/story_to_video', json=payload, headers=headers)
 
         except Exception as e:
             logger.warning(f"Couldn't fetch story: {story}")

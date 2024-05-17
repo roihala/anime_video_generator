@@ -4,7 +4,7 @@ outputs/*
 __pycache__/
 lib/background_music
 /resources/*
-/lib/sound FX/
+/lib
 credentials/
 .venv
 output/
