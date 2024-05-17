@@ -3,7 +3,7 @@
 #
 #  Created by Eldar Eliav on 2023/05/11.
 #
-from config import logger_with_id
+from config import logger
 from src.chat_gpt_session import ChatGPTSession
 import os
 
@@ -17,7 +17,7 @@ class ScriptGenerator:
     def generate(self, prompt) -> str:
         description = self._make_description(prompt)
         if os.getenv('DEBUG'):
-            logger_with_id.info(f"DESCRIPTION:\n{description}")
+            logger.info(f"DESCRIPTION: {description}")
         return description
 
     # private methods

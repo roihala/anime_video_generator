@@ -4,17 +4,20 @@ import time
 import traceback
 
 import requests
+from PIL import Image
+from io import BytesIO
 
 from google.cloud import storage
 
 from config import VIDEO_DIR_STRUCTURE, OUTPUT_DIR, NARRATION_FILE, DEBUG, BASE_DIR, \
-    IMAGES_DIR, SRT_FILE, GCS_URL_FORMAT, BACKGROUND_MUSIC_BUCKET_NAME, GCS_BUCKET_NAME, MUSIC_FILE, VIDEO_FOLDER, \
-    VIDEO_FILE, logger_with_id, UNCAPTIONED_FILE
+    IMAGES_DIR, SRT_FILE, GCS_URL_FORMAT, BACKGROUND_MUSIC_BUCKET_NAME, GCS_BUCKET_NAME, MUSIC_FILE, \
+    VIDEO_FILE, UNCAPTIONED_FILE, logger, IMAGE_FILE_FORMAT, MINIMUM_SCENES, MAXIMUM_SCENES
 from pathlib import Path
 
 from src.narrator import Narrator
 from src.script_generator import ScriptGenerator
 from src.story_to_video_request import StoryToVideoRequest
+from src.toontube_story import ToonTubeStory
 from src.video_maker import VideoMaker
 
 
@@ -23,36 +26,43 @@ class InvalidStoryError(Exception):
 
 
 class Manager:
-    def __init__(self):
-        self.output_dir: Path = None
+    def __init__(self, output_dir=None):
+        self.output_dir: Path = output_dir
         self.story_id = None
         self.images = []
 
         storage_client = storage.Client()
         self.data_bucket = storage_client.bucket(GCS_BUCKET_NAME)
         self.music_bucket = storage_client.bucket(BACKGROUND_MUSIC_BUCKET_NAME)
-        self.blob_path = None
 
     def manage(self, request: StoryToVideoRequest):
         # The init process of this function is flipped. shoud've created video_dir
         # and fetched story at first. But using story_id obtained from narration for ease
         # BECAUSE WE DON'T HAVE DB
+        # Generating a temp ID for logging purposes only
 
         prompt = request.prompt
         voice = request.voice
-        story_images = request.story_images
+        if not request.is_toontube and len(request.story_images) != 1:
+            raise ValueError("Toontube story expects a single url in story_images[]")
 
-        logger_with_id.info("STEP 0 - Prepare images")
+        if request.is_toontube:
+            story_images = request.story_images
+        else:
+            story_images = ToonTubeStory(request.story_images[0]).get_pages_from_reader()
 
-        logger_with_id.info("STEP 1 - script")
+        if len(story_images) < MINIMUM_SCENES:
+            raise ValueError(f"Insufficient story images amount: {len(story_images)}")
+
+        logger.info("STEP 1 - script")
         prompt = ScriptGenerator().generate(prompt)
 
-        logger_with_id.info("STEP 2 - narration")
+        logger.info("STEP 2 - narration")
 
         narrator = Narrator()
-        # TODO: get voice and not ''
-        story_id, narration_url = narrator.narrate('', prompt)
-        logger_with_id.extra['id'] = story_id
+        story_id, narration_url = narrator.narrate(voice, prompt)
+        logger.info(f"Assigned temp ID - {logger.id} to ID {story_id}")
+        logger.set_id(_id=story_id)
         narrator.request_transcription()
 
         self.output_dir = Path(str(BASE_DIR / story_id))
@@ -66,29 +76,34 @@ class Manager:
             os.makedirs(os.path.join(self.output_dir, subdir), exist_ok=True)
 
         self._fetch_narration(narration_url)
+
+        logger.info("STEP 3 - Prepare images")
+
         try:
             # if DEBUG:
             #     images_dir = DEMO_DIR / IMAGES_DIR
             #     self.images = [_ for _ in images_dir.iterdir() if _.is_file()]
             self._fetch_images(story_images)
         except Exception as e:
-            logger_with_id.error(f"Couldn't fetch story images, failing: {str(e)} -> {traceback.print_exc()}")
+            logger.error(f"Couldn't fetch story images, failing: {str(e)} -> {traceback.print_exc()}")
             raise InvalidStoryError("Couldn't fetch story images, failing", e)
-        logger_with_id.info("STEP 3 - video")
-        music_file = self._fetch_random_music()
+        logger.info("STEP 4 - video")
+        music_file = self.fetch_random_music()
         videomaker = VideoMaker(story_id, self.output_dir, music_file)
         videomaker.make_video()
 
-        logger_with_id.info("STEP 4 - captions")
+        logger.info("STEP 5 - captions")
         is_captions = False
         try:
             self._wait_for_captions()
             videomaker.burn_captions()
             is_captions = True
         except Exception as e:
-            logger_with_id.error(f"Couldn't get captions: {str(e)} -> {traceback.print_exc()}")
+            logger.error(f"Couldn't get captions: {str(e)} -> {traceback.print_exc()}")
         finally:
             self.upload_dir_to_gcs()
+
+        logger.info("STEP 6 - finish")
 
         if is_captions:
             return {'id': self.story_id, 'video_path': GCS_URL_FORMAT.format(os.path.join(self.story_id, videomaker.video_file_name))}
@@ -97,7 +112,7 @@ class Manager:
             # TODO
             # return {'id': self.story_id, 'video_path': GCS_URL_FORMAT.format(self.story_id)}
 
-    def _fetch_random_music(self) -> Path:
+    def fetch_random_music(self) -> Path:
         try:
             # List all blobs in the bucket
             blobs = list(self.music_bucket.list_blobs())
@@ -115,15 +130,37 @@ class Manager:
             raise RuntimeError("Couldn't download random music", e)
 
     def _fetch_images(self, story_images):
-        for index, image in enumerate(story_images):
+        for index, image_url in enumerate(story_images):
+            if index == MAXIMUM_SCENES:
+                logger.warning(f"Got more than {MAXIMUM_SCENES} images, using first {MAXIMUM_SCENES}")
+                break
             try:
-                image_type = self._get_image_type(image)
+                image_type = self._get_image_type(image_url)
+
+                if not image_type:
+                    image_type = self.identify_image_format(image_url)
+
                 if image_type:
-                    self._fetch_image(image, index, image_type)
+                    self._fetch_image(image_url, index, image_type)
+                else:
+                    logger.warning(f"Couldn't identify story image type at: {image_url}")
+
             except Exception as e:
-                logger_with_id.warning(f"Couldn't download story image at: {image}: {str(e)} -> {traceback.print_exc()}")
-        if not (10 >= len(self.images) <= 4):
-            raise InvalidStoryError(f"Insufficient amount of story photos: {len(self.images)}")
+                logger.warning(f"Couldn't download story image at: {image_url}: {str(e)} -> {traceback.print_exc()}")
+        if len(self.images) < MINIMUM_SCENES:
+            raise InvalidStoryError(f"Insufficient amount of story photos, could only process {len(self.images)} photos")
+
+
+    @staticmethod
+    def identify_image_format(url):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # Raises an exception for HTTP errors
+            image = Image.open(BytesIO(response.content))
+            return image.format
+        except Exception as e:
+            logger.warning(f"Couldn't identify image format at {url}: {e} -> {traceback.print_exc()}")
+            return ''
 
     def upload_dir_to_gcs(self):
         """
@@ -138,11 +175,11 @@ class Manager:
             for file in files:
                 local_file_path = os.path.join(local_dir, file)
                 relative_path = os.path.relpath(local_file_path, self.output_dir)
-                self.blob_path = os.path.join(self.story_id, relative_path)
+                blob_path = os.path.join(self.story_id, relative_path)
 
-                blob = self.data_bucket.blob(self.blob_path)
+                blob = self.data_bucket.blob(blob_path)
                 blob.upload_from_filename(local_file_path)
-                logger_with_id.info(f"Uploaded {local_file_path} to {self.blob_path}")
+        logger.info(f"Uploaded {self.output_dir} to {self.data_bucket}")
 
     def _fetch_image(self, url, index, image_type):
         """Download an image from a URL to a specified save path."""
@@ -170,7 +207,7 @@ class Manager:
             try:
                 blob = self.data_bucket.blob(str(Path(self.story_id) / SRT_FILE))
                 if blob.exists():
-                    logger_with_id.info(f'{self.story_id}: FOUND CAPTIONS')
+                    logger.info(f'{self.story_id}: FOUND CAPTIONS')
                     blob_data = blob.download_as_bytes()
 
                     with open(str(self.output_dir / SRT_FILE), 'wb') as file:
@@ -178,7 +215,7 @@ class Manager:
 
                     return
             except Exception as e:
-                logger_with_id.error(f"Error when trying to download blob data: {str(e)} -> {traceback.print_exc()}")
+                logger.error(f"Error when trying to download blob data: {str(e)} -> {traceback.print_exc()}")
             time.sleep(10)
         if not os.path.exists(str(self.output_dir / SRT_FILE)):
             # TODO: originally if not blob
@@ -196,7 +233,7 @@ class Manager:
                     # If the status code is not 200, prepare to retry after sleeping
                     raise requests.exceptions.RequestException
             except requests.exceptions.RequestException as e:
-                logger_with_id.warning(f"Attempt {retries + 1} failed. URL {narration_url} is not active. Retrying: {str(e)} -> {traceback.print_exc()}")
+                logger.warning(f"Attempt {retries + 1} failed. URL {narration_url} is not active. Retrying: {str(e)} -> {traceback.print_exc()}")
                 time.sleep(1)
                 retries += 1
 
@@ -217,5 +254,5 @@ class Manager:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
 
-        logger_with_id.info(f"File downloaded successfully from {narration_url} to {local_filename}")
+        logger.info(f"File downloaded successfully from {narration_url} to {local_filename}")
         return local_filename

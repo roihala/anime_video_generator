@@ -33,7 +33,7 @@ class CaptionsGenerator:
                     end_time = ','.join(spet)
 
                     # Append the new blocks to the output
-                    output.append(f"{index}\n{start_time} --> {end_time}\n{text}\n")
+                    output.append(f"{index} {start_time} --> {end_time} {text}\n")
                     index += 1
 
         return '\n'.join(output)

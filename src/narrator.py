@@ -10,7 +10,7 @@ import traceback
 
 import requests
 
-from config import logger_with_id
+from config import logger
 
 
 class Narrator:
@@ -24,9 +24,9 @@ class Narrator:
         https://docs.play.ht/reference/api-generate-audio
         """
         url = "https://api.play.ht/api/v2/tts"
-        voice = 'Adolfo'
 
-        # voice = voice if voice else "s3://voice-cloning-zero-shot/820da3d2-3a3b-42e7-844d-e68db835a206/sarah/manifest.json"
+        # TODO: default voice?
+        voice = voice if voice else "s3://voice-cloning-zero-shot/820da3d2-3a3b-42e7-844d-e68db835a206/sarah/manifest.json"
         payload = {
             "text": script,
             "voice": voice,
@@ -48,7 +48,7 @@ class Narrator:
                     break
                 time.sleep(0.2)
             except Exception as e:
-                logger_with_id.warning(f"Couldn't get narration response: {response.text} {e}")
+                logger.warning(f"Couldn't get narration response: {response.text} {e}")
                 continue
         if not self.narration_response:
             raise RuntimeError(f"Couldn't connect to narration API: {response.text}")
@@ -87,12 +87,12 @@ class Narrator:
                 elif 'is not complete. Please wait a few moments and try again.' in response.json().get('error_message'):
                     continue
                 else:
-                    logger_with_id.info(f'Couldnt setup srt file webhook, {_} tries')
+                    logger.info(f'Couldnt setup srt file webhook, {_} tries')
             except Exception as e:
-                logger_with_id.error(f"Error while trying to parse response, failing: {str(e)} -> {traceback.print_exc()}")
+                logger.error(f"Error while trying to parse response, failing: {str(e)} -> {traceback.print_exc()}")
             finally:
                 time.sleep(3)
-        raise ConnectionError(f"Failed to request srt file, {response if response else ''}:{response.content if response else ''}")
+        raise ConnectionError(f"Failed to request transcription file, {response if response else ''}:{response.content if response else ''}")
 
     # api methods
     def parse_playht_response(self, response_text) -> dict:
@@ -105,4 +105,4 @@ class Narrator:
             if last_response.split('\r\n')[0].strip('event: ') == 'completed':
                 return json.loads(last_response.split('\r\n')[-1].lstrip('data: '))
         except Exception as e:
-            logger_with_id.error(f"Couldn't parse playht response: {response_text}: {str(e)} -> {traceback.print_exc()}")
+            logger.error(f"Couldn't parse playht response: {response_text}: {str(e)} -> {traceback.print_exc()}")

@@ -9,3 +9,4 @@ class StoryToVideoRequest(BaseModel):
     prompt: str = Field(None, description="Story prompt for ChatGPT")
     callback_url: Optional[HttpUrl] = Field(None, description="The callback URL to notify when processing is done")
     voice: Optional[str] = Field(None, description="The voice to be used for narration")
+    is_toontube: Optional[bool] = Field(False, description="Is this a toontube story link? (from the reader)")

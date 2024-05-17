@@ -22,6 +22,7 @@ AUDIO_LIBRARY = LIB_DIRECTORY / 'background_music'
 TRANSITION_SOUND_EFFECT = LIB_DIRECTORY / 'sound FX' / 'Whoosh Sound Effect 01.mp3'
 OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
 TOONTUBE_LOGO = LIB_DIRECTORY / 'assets' / 'black_logo.mp4'
+VOICES_JSON = LIB_DIRECTORY / 'assets' / 'voices.json'
 
 # Ruby
 RUBY_DIR = LIB_DIRECTORY / 'ruby'
@@ -34,15 +35,16 @@ FILE_LIST = 'file_list.txt'
 # Current video subdirectory
 OUTPUT_DIR = 'output'
 IMAGES_DIR = 'images'
-SHARP_CUT_FILE_FORMAT = 'sharpcut_{0}_{1}.mp4'
-SCENE_FILE_FORMAT = 'scene{index}.mp4'
-FIRST_FRAME_PATH = 'scene{}_first_frame.jpg'
-LAST_FRAME_PATH = 'scene{}_last_frame.jpg'
+SHARP_CUT_FILE_FORMAT = 'scenes/sharpcut_{0}_{1}.mp4'
+SCENES_FOLDER = 'scenes'
+SCENE_FILE_FORMAT = 'scenes/scene{index}.mp4'
+FIRST_FRAME_PATH = 'scenes/scene{}_first_frame.jpg'
+LAST_FRAME_PATH = 'scenes/scene{}_last_frame.jpg'
+IMAGE_FILE_FORMAT = 'image'
 NARRATION_FILE = "awesome_voice.mp3"
 MUSIC_FILE = "awesome_music.{}"
 SRT_FILE = "awesome_voice.srt"
 UNCAPTIONED_FILE = 'uncaptioned_video.mp4'
-VIDEO_FOLDER = 'video'
 VIDEO_FILE = 'video/video-{0}.mp4'
 VIDEO_DIR_STRUCTURE = ['images', 'video']
 
@@ -53,45 +55,50 @@ GCS_URL_FORMAT = 'https://storage.googleapis.com/animax_data/{0}'
 GCS_BUCKET_NAME = 'animax_data'
 BACKGROUND_MUSIC_BUCKET_NAME = 'animax_music'
 
+# Logic
+MINIMUM_SCENES = 4
+MAXIMUM_SCENES = 7
+MINIMUM_SCENE_DURATION = 1.5 # In seconds
 
 class CustomLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
-        return '[ID: %s] %s' % (self.extra['id'], msg), kwargs
-
-    def get_id(self):
-        return self.extra['id']
+        return f'[ID: {self.extra["id"]}] {msg}', kwargs
 
 
-# Singleton storage
-logger_with_id = None
+class LoggerWithId:
+    _instance = None
 
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(LoggerWithId, cls).__new__(cls)
+            cls._instance.logger = None
+            cls._instance.id = None
+        return cls._instance
 
-def set_logger(_id='unknown'):
-    global logger_with_id
+    def __init__(self, _id='unknown'):
+        # Only initialize the logger if it hasn't been initialized or if the ID has changed
+        if self.logger is None or self.id != _id:
+            self.set_id(_id)
 
-    if logger_with_id:
-        print('kaki', logger_with_id.get_id(), _id)
+    def __getattr__(self, item):
+        # Ensure that self.logger is fully set up before trying to access its attributes
+        if self.logger is not None:
+            attr = getattr(self.logger, item)
+            if callable(attr):
+                return attr
+        raise AttributeError(f"'LoggerWithId' object or 'logger' has no attribute '{item}'")
 
-    if logger_with_id is None or logger_with_id.get_id() != _id:
+    def set_id(self, _id='unknown'):
+        self.id = _id
 
-        # Initialize logging only once
-        if os.getenv('DEBUG'):
-            logging.basicConfig(
-                level=logging.INFO,
-                format='%(asctime)s - %(levelname)s - %(message)s'
-            )
-        else:
-            logging.basicConfig(
+        logging.basicConfig(
                 level=logging.INFO,
                 format='%(asctime)s - %(levelname)s - %(message)s',
                 handlers=[logging.StreamHandler(sys.stdout)]
             )
 
         # Create a logger instance only once
-        logger = logging.getLogger("animax-logger")
-        logger_with_id = CustomLoggerAdapter(logger, {'id': _id})
+        l = logging.getLogger("animax-logger")
+        self.logger = CustomLoggerAdapter(l, {'id': _id})
 
-    return logger_with_id
-
-
-logger_with_id = set_logger()
+logger = LoggerWithId()

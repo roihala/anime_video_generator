@@ -25,3 +25,4 @@ requests~=2.31.0
 pathlib~=1.0.1
 opencv-python~=4.9.0.80
 pytest
+Pillow

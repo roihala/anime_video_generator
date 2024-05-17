@@ -59,6 +59,28 @@ if files.size != durations.size
   puts "Warning: The number of files and durations does not match. Please ensure each file has a corresponding duration."
   exit
 end
+
+# TODO: -1 only if even?
+num_transitions = durations.size / 2 - (durations.size.even? ? 1 : 0)
+transition_effects = []
+transition_outputs = []
+first_line = []
+
+# transition_durations.each_with_index do |duration, i|
+(1..num_transitions).step(1) do |i|
+  # Calculate the delay based on the cumulative duration up to this point
+  delay_time = durations.take(i * 2 - 1).sum * 1000 - 300  # adjust formula as needed
+
+  first_line << "[eff#{i}]"
+  transition_effects << "[eff#{i}]adelay=#{delay_time}|#{delay_time},volume=2.0:eval=frame[eff#{i}out]"
+  transition_outputs << "[eff#{i}out]"
+end
+
+first_line_str = first_line.join('')
+transition_effects_str = transition_effects.join('; ')
+transition_outputs_str = transition_outputs.join('')
+
+
 # Combine files with their durations
 files_with_durations = files.zip(durations)
 
@@ -69,45 +91,68 @@ puts "Transition Sound Effect: #{options[:transition_sound_effect]}"
 puts "Output File: #{options[:output_file]}" # Display the output file path
 
 # #############################################################################
-temp_file = Tempfile.new(['no_audio', '.mp4'])
+no_audio_file = Tempfile.new(['no_audio', '.mp4'])
+with_music_file = Tempfile.new(['with_music', '.mp4'])
+
 begin
   # Concats all scenes without audio
   ffmpeg_command = [
     'ffmpeg',
-#     '-loglevel' ,
-#     'error',
+    '-loglevel' ,
+    'error',
     '-f', 'concat', # Specifies the input format as 'concat'
     '-safe', '0',
     '-i', "#{options[:file_list]}",
     '-c', 'copy', # Copy streams without reencoding
     '-y',
-    temp_file.path
+    no_audio_file.path
   ]
   puts "Executing command:#{ffmpeg_command.join(' ')}"
   system(*ffmpeg_command)
-  puts "Kaki: #{durations} #{durations.sum}"
 
   ffmpeg_command = [
     'ffmpeg',
     '-loglevel' ,
     'error',
-    '-i', temp_file.path,
+    '-i', no_audio_file.path,
     '-i', options[:background_music],
     '-i', options[:narration_audio],
-    '-i', options[:transition_sound_effect],
-    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{(durations[0] * 1000 - 300)}|#{(durations[0] * 1000 - 300)},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{(durations.take(2 + 1).sum * 1000 - 300)}|#{(durations.take(2 + 1).sum * 1000 - 300)},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{(durations.take(4 + 1).sum * 1000 - 300)}|#{(durations.take(4 + 1).sum * 1000 - 300)},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
-#     '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{(durations[0] * 1000) - 300}|#{(durations[0] * 1000) - 300},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{durations.take(2 + 1).sum * 1000}|#{durations.take(2 + 1).sum * 1000},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{durations.take(4 + 1).sum * 1000}|#{durations.take(4 + 1).sum * 1000},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
+    # origianl
+#     '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=3[eff1][eff2][eff3]; [eff1]adelay=#{(durations[0] * 1000 - 300)}|#{(durations[0] * 1000 - 300)},volume=2.0:eval=frame[eff1out]; [eff2]adelay=#{(durations.take(2 + 1).sum * 1000 - 300)}|#{(durations.take(2 + 1).sum * 1000 - 300)},volume=2.0:eval=frame[eff2out]; [eff3]adelay=#{(durations.take(4 + 1).sum * 1000 - 300)}|#{(durations.take(4 + 1).sum * 1000 - 300)},volume=2.0:eval=frame[eff3out]; [a1][a2][eff1out][eff2out][eff3out]amix=inputs=5:duration=first:dropout_transition=2[a]",
+
+    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [a1][a2]amix=inputs=2:duration=first:dropout_transition=2[a]",
+    # Staged
+#     '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [1:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=-#{options[:music_volume_adjustment]}dB:eval=frame[a1]; [2:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS,volume=1.0:eval=frame[a2]; [3:a]asplit=#{num_transitions}#{first_line_str}; #{transition_effects_str}; [a1][a2]#{transition_outputs_str}amix=inputs=#{2 + num_transitions}:duration=first:dropout_transition=2[a]",
+
+    '-map', '[v0]',
+    '-map', '[a]',
+    '-y',
+    '-c:v', 'libx264',
+    with_music_file.path
+  ]
+  puts "Executing command:\n#{ffmpeg_command.join(' ')}"
+  system(*ffmpeg_command)
+
+  ffmpeg_command = [
+    'ffmpeg',
+    '-loglevel' ,
+    'error',
+    '-i', with_music_file.path,
+    '-i', "\"#{options[:transition_sound_effect]}\"",
+    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [0:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS[orig_audio]; [1:a]asplit=#{num_transitions}#{first_line_str};#{transition_effects_str}; [orig_audio]#{transition_outputs_str}amix=inputs=#{num_transitions + 1}:duration=first:dropout_transition=2[a];  ",
     '-map', '[v0]',
     '-map', '[a]',
     '-y',
     '-c:v', 'libx264',
     options[:output_file]
   ]
-  puts "Executing command:#{ffmpeg_command.join(' ')}"
+  puts "Executing command:\n#{ffmpeg_command.join(' ')}"
   system(*ffmpeg_command)
 ensure
   # Close and delete the temporary file
-  temp_file.close!
-  temp_file.unlink   # deletes the temp file
+  with_music_file.close!
+  with_music_file.unlink   # deletes the temp file
+  no_audio_file.close!
+  no_audio_file.unlink   # deletes the temp file
 end
 GC.start

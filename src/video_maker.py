@@ -15,15 +15,13 @@ from pydantic import BaseModel
 
 from config import SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
     FILE_LIST, TRANSITION_SOUND_EFFECT, LAST_FRAME_PATH, FIRST_FRAME_PATH, IMAGES_DIR, SCENE_FILE_FORMAT, AUDIO_LIBRARY, \
-    VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, VIDEO_FOLDER, SRT_FILE, MUSIC_FILE, \
-    logger_with_id, DEBUG, TOONTUBE_LOGO
+    VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, SRT_FILE, MUSIC_FILE, \
+    DEBUG, TOONTUBE_LOGO, logger, MINIMUM_SCENES, SCENES_FOLDER, MINIMUM_SCENE_DURATION
 from pydub import AudioSegment
 import soundfile as sf
 import pyloudnorm as pyln
-from types import SimpleNamespace
-from src.animax_exception import AnimaxException, BacgkgroundMusicException
-from google.cloud import storage
 from pathlib import Path
+
 
 # Default target loudness, in decibels
 DEFAULT_TARGET_LOUDNESS = -8
@@ -33,13 +31,14 @@ SCALE_MODES = ['pad', 'pan']
 # Frame duration per 60 fps = 1 / 60(frames) ≈ 16.67
 FRAME_DURATION = 1 / 60
 SHARP_CUT_FRAME_DURATION = 12
-MAX_VIDEO_DURATION = 30
+MAX_VIDEO_DURATION = 40
 
 
 class Slide(BaseModel):
     index: int
     scene_path: Path
     scene_duration: float
+    is_scene_created: bool = False
     img_path: Path = None
     transition_path: Path = None
     transition_duration: float = None
@@ -57,11 +56,15 @@ class VideoMaker:
         self.video_file_path = output_dir / self.video_file_name
         self.narration_file = output_dir / NARRATION_FILE
 
+        if not os.path.exists(output_dir / SCENES_FOLDER):
+            os.makedirs(output_dir / SCENES_FOLDER)
+
         self.slides = []
         if slides and DEBUG:
             self.slides = slides
         else:
             self._generate_slides()
+            logger.info(f"Successfully generated slides: {self.slides}")
 
     def make_video(self):
         self.make_scenes()
@@ -79,9 +82,7 @@ class VideoMaker:
                f'--srt-file', f'{self.output_dir / SRT_FILE}',
                f'--output_file', f'{self.video_file_path}']
 
-        logger_with_id.info(f'ruby command {" ".join(cmd)}')
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        logger_with_id.info(f"Command output: {result.stderr}")
+        self.run_cmd_and_log(cmd)
 
     def make_scenes(self):
         for i, slide in enumerate(self.slides):
@@ -89,9 +90,16 @@ class VideoMaker:
                 f'ruby', f'{SCENE_MAKER}', f'{slide.img_path}', f'{slide.scene_path}', f'--slide-duration={slide.scene_duration}',
                 f'--zoom-rate=0.1', '--zoom-direction=random', f'--scale-mode={random.choice(SCALE_MODES)}', '-y']
 
-            logger_with_id.info(f'ruby command {" ".join(cmd)}')
+            logger.info(f'ruby command {" ".join(cmd)}')
             result = subprocess.run(cmd, capture_output=True, text=True)
-            logger_with_id.info(f"Command output: {result.stderr}")
+            if result.stderr:
+                logger.warning(f"Failed to generate scene {slide}: -> {result.stdout} | {result.stderr}")
+                slide.is_scene_created = False
+            else:
+                slide.is_scene_created = True
+
+        if sum(1 for slide in self.slides if slide.is_scene_created) < MINIMUM_SCENES:
+            raise RuntimeError(f"Failed to create enough scenes, created: {sum(1 for slide in self.slides if slide.is_scene_created)}")
 
     def make_transitions(self):
         for i, slide in enumerate(self.slides[0:-1]):
@@ -102,9 +110,18 @@ class VideoMaker:
             # This calculation is specifically for sharp cut, other transitions will have to be calculated differently
             slide.transition_duration = (FRAME_DURATION * SHARP_CUT_FRAME_DURATION)
             cmd = [f'ruby', f'{SHARP_CUT_MAKER}', f'{last_frame}', f'{first_frame}', f'{slide.transition_path}']
-            logger_with_id.info(f'ruby command {" ".join(cmd)}')
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            logger_with_id.info(f"Command output: {result.stderr}")
+            self.run_cmd_and_log(cmd)
+
+    @staticmethod
+    def run_cmd_and_log(cmd, verbose=False):
+        logger.info(f'ruby command {" ".join(cmd)}')
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.stderr:
+            logger.warning(f"Command failed: {result.stdout} | {result.stderr}")
+        elif verbose:
+            logger.warning(f"Command output: {result.stdout}")
+
+
 
     def connect_all(self):
         # Generate the necessary attributes for the ruby file:
@@ -131,18 +148,14 @@ class VideoMaker:
                f'--transition-sound-effect', f'{TRANSITION_SOUND_EFFECT}',
                f'--output_file', f'{self.output_dir / UNCAPTIONED_FILE}']
 
-        logger_with_id.info(f'ruby command {" ".join(cmd)}')
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        logger_with_id.info(f"Command output: {result.stderr} ||| {result.stdout}")
+        self.run_cmd_and_log(cmd, verbose=True)
 
     def sharp_cut(self, images):
         images_string = " ".join(images)
         transition_file_path = os.path.join(self.output_dir, 'sharp_cut.mp4')
         cmd = [f'ruby', f'{SHARP_CUT_MAKER}', f'{images_string}', f'{transition_file_path}']
 
-        logger_with_id.info(f'ruby command {" ".join(cmd)}')
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        logger_with_id.info(f"Command output: {result.stderr}")
+        self.run_cmd_and_log(cmd)
 
     def extract_frame(self, slide: Slide, is_last=True):
         # if not is_last - will extract first frame
@@ -151,7 +164,7 @@ class VideoMaker:
         cap = cv2.VideoCapture(str(video_path))
         # Check if video opened successfully
         if not cap.isOpened():
-            logger_with_id.warning("Error opening video file")
+            logger.warning("Error opening video file")
             return
         if is_last:
             image_path = self.output_dir / LAST_FRAME_PATH.format(slide.index)
@@ -179,7 +192,7 @@ class VideoMaker:
                 slide.first_frame_path = image_path
             return image_path
         else:
-            logger_with_id.warning("Error extracting the last frame")
+            logger.warning("Error extracting the last frame")
 
         # Release the video capture object
         cap.release()
@@ -190,15 +203,19 @@ class VideoMaker:
         # Each slide is an image
 
         video_duration = self._get_audio_duration(str(self.narration_file))
-        if video_duration > MAX_VIDEO_DURATION:
-            raise ValueError(f"Video duration is too long - {self.narration_file}")
-
         scenes = os.listdir(self.output_dir / IMAGES_DIR)
+        total_min_duration = MINIMUM_SCENE_DURATION * len(scenes)
+
+        if (video_duration > MAX_VIDEO_DURATION) or (video_duration < total_min_duration):
+            raise ValueError(f"Video duration doesn't match requirements: {MAX_VIDEO_DURATION} < {video_duration} > {total_min_duration}")
+
+        remaining_duration = video_duration - total_min_duration
 
         # Randomly disparse scene durations
-        durations = [random.random() for _ in range(len(scenes))]
-        durations = [d / sum(durations) * video_duration for d in durations]
-        i = 0
+        extra_durations = [random.random() for _ in range(len(scenes))]
+        normalized_extra_durations = [d / sum(extra_durations) * remaining_duration for d in extra_durations]
+        durations = [MINIMUM_SCENE_DURATION + extra for extra in normalized_extra_durations]
+
         for i in range(len(scenes)):
             self.slides.append(
                 Slide(index=i,

@@ -18,6 +18,6 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
-      imagePullSecrets:
-      - name: my-secret
+#      imagePullSecrets:
+#      - name: my-secret
 

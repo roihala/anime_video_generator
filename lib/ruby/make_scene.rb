@@ -78,14 +78,24 @@ end
 
 output_ratio = output_height.to_f / output_width.to_f
 
-size = FastImage.size(scene_image)
-ratio = size[0].to_f / size[1].to_f
+ratio = output_height / output_width
+
+img_file = Tempfile.new(['image', '.jpeg'])
+
+cmd = ["ffmpeg",
+  "-loglevel", "error",
+  "-i", scene_image,
+  "-vf", "scale=#{output_height}:#{output_width},format=yuv420p",
+  "-y", img_file.path
+]
+puts cmd.join(" ")
+system(*cmd)
 
 # Create a single slide as a Hash instead of mapping over input_files
 slide = {
-  file: scene_image,
-  width: size[0],
-  height: size[1],
+  file: img_file.path,
+  width: 1080,
+  height: 1920,
   direction_x: x_directions.sample,
   direction_y: y_directions.sample,
   direction_z: z_directions.sample,
@@ -229,7 +239,9 @@ filter_chains += slides.each_with_index.map do |slide, i|
 end
 
 # Start generating
-temp_file = Tempfile.new(['scene', '.mp4'])
+scene_file = Tempfile.new(['scene', '.mp4'])
+img_file = Tempfile.new(['image', '.mp4'])
+
 begin
   # Run ffmpeg
   cmd = [
@@ -238,7 +250,7 @@ begin
     "-filter_complex", filter_chains.join(";"),
     "-t", (options.slide_duration_s).to_s,
     "-map", "[out]",
-    "-c:v", "libx264", temp_file.path
+    "-c:v", "libx264", scene_file.path
   ]
   puts cmd.join(" ")
   system(*cmd)
@@ -247,7 +259,7 @@ begin
   "ffmpeg",
   '-loglevel' ,
   'error',
-  "-i", temp_file.path,
+  "-i", scene_file.path,
   "-vf", "select='gt(n,0)'",
   "-vsync", "vfr",
   "-c:a", "copy",
@@ -259,7 +271,10 @@ begin
 
 ensure
   # Close and delete the temporary file
-  temp_file.close!
-  temp_file.unlink   # deletes the temp file
+  scene_file.close!
+  scene_file.unlink   # deletes the temp file
+  img_file.close!
+  img_file.unlink   # deletes the temp file
+
 end
 GC.start

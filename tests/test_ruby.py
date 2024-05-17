@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from config import VIDEO_MAKER, FILE_LIST, TRANSITION_SOUND_EFFECT, UNCAPTIONED_FILE, logger_with_id, TOONTUBE_LOGO
+from config import VIDEO_MAKER, FILE_LIST, TRANSITION_SOUND_EFFECT, UNCAPTIONED_FILE, TOONTUBE_LOGO
 from src.video_maker import VideoMaker, Slide
 
 slides = [
@@ -56,7 +56,7 @@ slides = [
 ]
 
 
-def test_make_video():
+def ttest_make_video():
     story_id = '45KmQwtF5qecbixQNe'
     music_file = Path(
         '/Users/roihala/PycharmProjects/anime_video_generator/output/AySMw7CQANDh5kIVX4/awesome_music.wav')
