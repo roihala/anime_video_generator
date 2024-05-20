@@ -1,0 +1,12 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: executor-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: executor-app
+  minReplicas: 2  # Minimum number of replicas
+  maxReplicas: 20  # Maximum number of replicas
+  targetCPUUtilizationPercentage: 50  # Target average CPU utilization

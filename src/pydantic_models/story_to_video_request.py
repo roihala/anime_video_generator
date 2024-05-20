@@ -1,5 +1,5 @@
 from openai import BaseModel
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, HttpUrl, Field, field_serializer
 from typing import Optional, Dict, Any, List
 from fastapi import Query
 

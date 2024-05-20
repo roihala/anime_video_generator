@@ -1,12 +1,13 @@
 import os
 from google.cloud import storage
+from google.cloud import resourcemanager
 
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
 
 import freesound
 
-from config import LIB_DIRECTORY
+from config import LIB_DIRECTORY, BACKGROUND_MUSIC_BUCKET_NAME
 
 # from src.video_maker import LIB_DIRECTORY
 
@@ -86,7 +87,7 @@ class GetBackgroundMusic:
     def upload_to_gcs():
         if os.path.exists(str(AUDIO_DIRECTORY_PATH)):
             storage_client = storage.Client()
-            bucket = storage_client.bucket(os.getenv('BACKGROUND_MUSIC_BUCKET_NAME'))
+            bucket = storage_client.bucket(BACKGROUND_MUSIC_BUCKET_NAME)
             audio_extensions = {'.mp3', '.wav', '.aac', '.m4a', '.flac', '.ogg', '.wma'}
 
             for filename in os.listdir(str(AUDIO_DIRECTORY_PATH)):

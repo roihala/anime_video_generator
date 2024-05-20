@@ -1,8 +1,10 @@
 import subprocess
 from pathlib import Path
+import pytest
 
 from config import VIDEO_MAKER, FILE_LIST, TRANSITION_SOUND_EFFECT, UNCAPTIONED_FILE, TOONTUBE_LOGO
-from src.video_maker import VideoMaker, Slide
+from src.video_maker import VideoMaker
+from src.pydantic_models.slide import Slide
 
 slides = [
     Slide(
@@ -12,9 +14,7 @@ slides = [
         scene_duration=5.5109742118471825,
         transition_path=Path(
             '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/sharpcut_0_1.mp4'),
-        transition_duration=0.2,
-        last_frame_path=Path(
-            '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/scene0_last_frame.jpg')
+        transition_duration=0.2
     ),
     Slide(
         index=1,
@@ -23,11 +23,7 @@ slides = [
         scene_duration=6.003754739464292,
         transition_path=Path(
             '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/sharpcut_1_2.mp4'),
-        transition_duration=0.2,
-        first_frame_path=Path(
-            '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/scene1_first_frame.jpg'),
-        last_frame_path=Path(
-            '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/scene1_last_frame.jpg')
+        transition_duration=0.2
     ),
     Slide(
         index=2,
@@ -36,19 +32,13 @@ slides = [
         scene_duration=6.020906276993387,
         transition_path=Path(
             '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/sharpcut_2_3.mp4'),
-        transition_duration=0.2,
-        first_frame_path=Path(
-            '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/scene2_first_frame.jpg'),
-        last_frame_path=Path(
-            '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/scene2_last_frame.jpg')
+        transition_duration=0.2
     ),
     Slide(
         index=3,
         img_path=Path('/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/images/3.jpeg'),
         scene_path=Path('/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/scene3.mp4'),
-        scene_duration=6.133698105028472,
-        first_frame_path=Path(
-            '/Users/roihala/PycharmProjects/anime_video_generator/output/45KmQwtF5qecbixQNe/scene3_first_frame.jpg')
+        scene_duration=6.133698105028472
     ),
     Slide(index=4,
           scene_path=TOONTUBE_LOGO,
@@ -56,7 +46,7 @@ slides = [
 ]
 
 
-def ttest_make_video():
+def test_make_video():
     story_id = '45KmQwtF5qecbixQNe'
     music_file = Path(
         '/Users/roihala/PycharmProjects/anime_video_generator/output/AySMw7CQANDh5kIVX4/awesome_music.wav')

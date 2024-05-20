@@ -1,3 +1,5 @@
+gunicorn
+uvicorn
 auto_mix_prep==0.2.0
 config==0.5.1
 openai~=1.16.2
@@ -26,3 +28,7 @@ pathlib~=1.0.1
 opencv-python~=4.9.0.80
 pytest
 Pillow
+google-cloud-resource-manager
+google-cloud-pubsub
+kubernetes
+APScheduler

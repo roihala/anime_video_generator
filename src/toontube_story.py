@@ -1,6 +1,8 @@
 import re
 import requests
 
+from config import logger
+
 
 class ToonTubeStory:
     def __init__(self, url):

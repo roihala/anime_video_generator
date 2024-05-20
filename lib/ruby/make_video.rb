@@ -5,6 +5,8 @@ require 'optparse'
 require 'ostruct'
 require 'open3'
 require 'tempfile'
+require 'shellwords'
+
 
 options = {
   file_list: 'file_list.txt',
@@ -20,7 +22,7 @@ OptionParser.new do |opts|
   opts.banner = "Usage: ruby_script.rb [options]"
 
   opts.on("--file-list FILE", "Path to file list txt (default: file_list.txt)") do |file|
-    options[:file_list] = file
+    options[:file_list] = Shellwords.escape(File.expand_path(file))
   end
 
   opts.on("--durations DURATIONS", "List of durations matching the file list, separated by comma") do |durations|
@@ -29,8 +31,8 @@ OptionParser.new do |opts|
     end
   end
 
-  opts.on("--background-music MUSIC", "Background music file") do |music|
-    options[:background_music] = music
+  opts.on("--background-music FILE", "Background music file") do |file|
+    options[:background_music] = Shellwords.escape(File.expand_path(file))
   end
 
   opts.on("--music-volume-adjustment VALUE", Float, "Music volume adjustment in decibels") do |value|
@@ -38,15 +40,15 @@ OptionParser.new do |opts|
   end
 
   opts.on("--narration-audio FILE", "Narration audio file") do |file|
-    options[:narration_audio] = file
+    options[:narration_audio] = Shellwords.escape(File.expand_path(file))
   end
 
   opts.on("--transition-sound-effect FILE", "Transition sound effect file") do |file|
-    options[:transition_sound_effect] = file
+    options[:transition_sound_effect] = Shellwords.escape(File.expand_path(file))
   end
 
   opts.on("--output-file FILE", "Output file path") do |file| # Define output file option
-    options[:output_file] = file
+    options[:output_file] = Shellwords.escape(File.expand_path(file))
   end
 end.parse!
 
@@ -102,7 +104,7 @@ begin
     'error',
     '-f', 'concat', # Specifies the input format as 'concat'
     '-safe', '0',
-    '-i', "#{options[:file_list]}",
+    '-i', options[:file_list],
     '-c', 'copy', # Copy streams without reencoding
     '-y',
     no_audio_file.path
@@ -139,7 +141,7 @@ begin
     'error',
     '-i', with_music_file.path,
     '-i', options[:transition_sound_effect],
-    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [0:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS[orig_audio]; [1:a]asplit=#{num_transitions}#{first_line_str};#{transition_effects_str}; [orig_audio]#{transition_outputs_str}amix=inputs=#{num_transitions + 1}:duration=first:dropout_transition=2[a];  ",
+    '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [0:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS[orig_audio]; [1:a]asplit=#{num_transitions}#{first_line_str};#{transition_effects_str}; [orig_audio]#{transition_outputs_str}amix=inputs=#{num_transitions + 1}:duration=first:dropout_transition=2[a]",
     '-map', '[v0]',
     '-map', '[a]',
     '-y',

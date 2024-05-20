@@ -31,14 +31,9 @@ RUN pip install --no-cache-dir --default-timeout=1800 -r requirements.txt
 # Copy the rest of your application's code
 COPY . .
 
-# Expose the port the app will run on
-EXPOSE 8000
-
 # Copy the credentials file into the container
-COPY ./credentials/animax-419913-c556959c0ca6.json /secrets/credentials.json
+COPY ./credentials/animax-423606-4241bb719224.json /secrets/credentials.json
 
 # Set the environment variable to point to the credentials file
 ENV GOOGLE_APPLICATION_CREDENTIALS /secrets/credentials.json
-
-# Command to run your application
-CMD ["uvicorn", "app:app", "--workers", "4", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python3", "./executor.py"]

@@ -13,13 +13,13 @@ from dotenv import load_dotenv
 load_dotenv()  # This loads the variables from '.env' into the environment
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
-BASE_DIR = Path(__file__).parent / 'output'
+OUT_DIR = Path(__file__).parent / 'output' if DEBUG else Path('/mnt/data') / 'output'
 VOICE_NAME = 'Adam'
 
 # Lib
 LIB_DIRECTORY = Path(os.path.dirname(__file__)) / 'lib'
 AUDIO_LIBRARY = LIB_DIRECTORY / 'background_music'
-TRANSITION_SOUND_EFFECT = LIB_DIRECTORY / 'sound FX' / 'whoosh_sound.mp3'
+TRANSITION_SOUND_EFFECT = LIB_DIRECTORY / 'sound_FX' / 'whoosh_sound.mp3'
 OLD_MAKER_FILE = LIB_DIRECTORY / 'maker.rb'
 TOONTUBE_LOGO = LIB_DIRECTORY / 'assets' / 'black_logo.mp4'
 VOICES_JSON = LIB_DIRECTORY / 'assets' / 'voices.json'
@@ -44,21 +44,35 @@ IMAGE_FILE_FORMAT = 'image'
 NARRATION_FILE = "awesome_voice.mp3"
 MUSIC_FILE = "awesome_music.{}"
 SRT_FILE = "awesome_voice.srt"
+ASS_FILE = "awesome_voice.ass"
 UNCAPTIONED_FILE = 'uncaptioned_video.mp4'
 VIDEO_FILE = 'video/video-{0}.mp4'
 VIDEO_DIR_STRUCTURE = ['images', 'video']
 
 # URLs
-GCS_URL_FORMAT = 'https://storage.googleapis.com/animax_data/{0}'
+GCS_URL_FORMAT = 'https://storage.googleapis.com/animax_data1/{0}'
 
-# Buckets
+# GCP
+PROJECT_ID = 'animax-423606'
 GCS_BUCKET_NAME = 'animax_data1'
 BACKGROUND_MUSIC_BUCKET_NAME = 'animax_music1'
+API_REQUEST_TOPIC = 'api-request-topic' if not DEBUG else 'api-request-debug'
+API_REQUEST_SUBSCRIPTION = 'api-request-topic-sub' if not DEBUG else 'api-request-debug-sub'
+BRIDGE_TOPIC = 'bridge' if not DEBUG else 'bridge-debug'
+BRIDGE_SUBSCRIPTION = 'bridge-sub' if not DEBUG else 'bridge-debug-sub'
 
 # Logic
 MINIMUM_SCENES = 4
 MAXIMUM_SCENES = 7
 MINIMUM_SCENE_DURATION = 1.5 # In seconds
+
+# Video creation
+# Frame duration per 60 fps = 1 / 60(frames) ≈ 16.67
+FRAME_DURATION = 1 / 60
+SHARP_CUT_FRAME_DURATION = 12
+MAX_VIDEO_DURATION = 40
+DEFAULT_TARGET_LOUDNESS = -8 # In decibels
+SCALE_MODES = ['pad', 'pan']
 
 class CustomLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):

@@ -7,8 +7,12 @@ We expect POST requests, where the keys are passed to request body at:
 - `voice: Optional[str]` - A voice name or url supported by play.ht
   A list of voices can be found here: https://docs.play.ht/reference/api-list-ultra-realistic-voices
 - `prompt: Optional[str]` - The prompt to generate the text from
+- `is_toontube: bool` - If provided, the API will look for the first (and only) url in story_images, and use these story images`
+* Note: The toontube url is from the READER, e.g:
+* https://toontube.co/reader/6400809b651f9fc369319f43/653672907b605c94f734f89a?page=1
 ### Future keys
 - `background_music: str` - A key or phrase to generate background music from`
+- 
     
 <mark>Note that due to the nature of POC not everything will work correctly, and debugging is based on "id" key of response json</mark>
 ### Usage 

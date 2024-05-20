@@ -10,6 +10,7 @@ from config import logger
 def setup_session():
     # Code to run before any debug starts
     # logger.set_id(_id='45KmQwtF5qecbixQNe')
+    # os.environ['DEBUG'] = 'True'
     yield
     # Code to run after all tests are done
     print("Session teardown")

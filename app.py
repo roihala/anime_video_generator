@@ -1,4 +1,5 @@
 import asyncio
+import pickle
 import random
 import sys
 import time
@@ -15,13 +16,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Depends, Request, HTTPException, BackgroundTasks
+from google import pubsub_v1
+from google.cloud.pubsub_v1 import PublisherClient
+from pydantic import HttpUrl
 
-import config
-from config import SRT_FILE, BASE_DIR, GCS_BUCKET_NAME, logger
+from config import SRT_FILE, OUT_DIR, GCS_BUCKET_NAME, logger, ASS_FILE, API_REQUEST_TOPIC, PROJECT_ID
 from src.captions_generator import CaptionsGenerator
 from src.manager import Manager
+from src.pydantic_models.api_message import ApiMessage
 from src.pydantic_models.story_to_video_request import StoryToVideoRequest
-
+from src.video_maker import VideoMaker
 
 load_dotenv()  # This loads the variables from '.env' into the environment
 app = FastAPI()
@@ -41,36 +45,6 @@ async def test_gcs():
     except Exception as e:
         return {'exception': str(e)}
 
-
-async def process_story_to_video(request: StoryToVideoRequest):
-    start_time = time.time()
-
-    result = {}
-    try:
-        temp_id = random.randint(100000, 999999)
-        logger.set_id(_id=str(temp_id))
-        logger.info(f"Story to video with payload {request}")
-
-        # TODO: voice
-        result = Manager().manage(request)
-        logger.info(
-            f"Successfully generated video -> {result}")
-
-        result.update({"message": "Success"})
-    except Exception as e:
-        message = f'Encountered a fatal error: {str(e)} -> {traceback.print_exc()}'
-        logger.error(message)
-        result = {"message": message}
-    finally:
-        end_time = time.time()
-        result['request'] = request.json()
-        result['execution_time'] = end_time - start_time
-        if not request.callback_url:
-            logger.warning(f"callback url was not provided for result -> {result}")
-        else:
-            await post_to_callback(str(request.callback_url), result)
-
-
 async def post_to_callback(callback_url, result):
     try:
         async with httpx.AsyncClient() as client:
@@ -86,7 +60,15 @@ async def story_to_video(background_tasks: BackgroundTasks, request: StoryToVide
     """
     This function expects a JSON body with a story URL, an optional webhook URL, and an optional voice option to notify when it's done.
     """
-    background_tasks.add_task(process_story_to_video, request=request)
+    api_message = ApiMessage(
+        sub_url='/story_to_video',
+        request=request
+    )
+
+    publisher = PublisherClient()
+    topic_path = publisher.topic_path(PROJECT_ID, API_REQUEST_TOPIC)
+    pickle_data = pickle.dumps(api_message)
+    publisher.publish(topic_path, pickle_data)
     return {"message": "Processing"}
 
 
@@ -106,29 +88,33 @@ async def transcription_webhook(request: Request):
     try:
         logger.set_id(data.get('job_id'))
         transcription = data.get('results').get('transcription')
-        transcription = CaptionsGenerator.generate_highlighted_captions(transcription)
+        # kaki
+        kaki = CaptionsGenerator.generate_srt(transcription)
+        transcription = CaptionsGenerator.generate_ass(transcription)
 
         if transcription:
-            video_dir = BASE_DIR / data.get('job_id')
+            video_dir = OUT_DIR / data.get('job_id')
             if not os.path.exists(str(video_dir)):
                 os.makedirs(video_dir)
-            with open(str(video_dir / SRT_FILE), 'w') as f:
+
+            with open(str(video_dir / ASS_FILE), 'w') as f:
                 f.write(transcription)
             # Process the transcription part here
             storage_client = storage.Client()
             bucket = storage_client.bucket(GCS_BUCKET_NAME)
-            blob = bucket.blob(str(Path(data.get('job_id')) / SRT_FILE))
+            blob = bucket.blob(str(Path(data.get('job_id')) / ASS_FILE))
             blob.upload_from_string(transcription)
-
+            message = "Transcription processed successfully."
+            logger.info(message)
             # Respond that the request was processed successfully
-            return {"message": "Transcription processed successfully."}
+            return {"message": message}
         else:
             # If there is no transcription, you might want to return a different message
             message = "No transcription to process."
             logger.warning(message)
             return {"message": message}
     except Exception as e:
-        message = "Couldn't generate transcription srt"
+        message = "Couldn't generate transcription srt: "
         logger.error(message + f'{str(e)} -> {traceback.print_exc()}')
         raise HTTPException(status_code=400, detail=message)
 

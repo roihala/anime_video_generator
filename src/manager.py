@@ -2,6 +2,7 @@ import random
 import os
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from PIL import Image
@@ -9,14 +10,14 @@ from io import BytesIO
 
 from google.cloud import storage
 
-from config import VIDEO_DIR_STRUCTURE, OUTPUT_DIR, NARRATION_FILE, DEBUG, BASE_DIR, \
+from config import VIDEO_DIR_STRUCTURE, OUTPUT_DIR, NARRATION_FILE, DEBUG, OUT_DIR, \
     IMAGES_DIR, SRT_FILE, GCS_URL_FORMAT, BACKGROUND_MUSIC_BUCKET_NAME, GCS_BUCKET_NAME, MUSIC_FILE, \
-    VIDEO_FILE, UNCAPTIONED_FILE, logger, IMAGE_FILE_FORMAT, MINIMUM_SCENES, MAXIMUM_SCENES
+    VIDEO_FILE, UNCAPTIONED_FILE, logger, IMAGE_FILE_FORMAT, MINIMUM_SCENES, MAXIMUM_SCENES, ASS_FILE
 from pathlib import Path
 
 from src.narrator import Narrator
+from src.pydantic_models.story_to_video_request import StoryToVideoRequest
 from src.script_generator import ScriptGenerator
-from src.story_to_video_request import StoryToVideoRequest
 from src.toontube_story import ToonTubeStory
 from src.video_maker import VideoMaker
 
@@ -27,6 +28,7 @@ class InvalidStoryError(Exception):
 
 class Manager:
     def __init__(self, output_dir=None):
+        self.executor = ThreadPoolExecutor(50)
         self.output_dir: Path = output_dir
         self.story_id = None
         self.images = []
@@ -47,9 +49,9 @@ class Manager:
             raise ValueError("Toontube story expects a single url in story_images[]")
 
         if request.is_toontube:
-            story_images = request.story_images
-        else:
             story_images = ToonTubeStory(request.story_images[0]).get_pages_from_reader()
+        else:
+            story_images = request.story_images
 
         if len(story_images) < MINIMUM_SCENES:
             raise ValueError(f"Insufficient story images amount: {len(story_images)}")
@@ -65,10 +67,9 @@ class Manager:
         logger.set_id(_id=story_id)
         narrator.request_transcription()
 
-        self.output_dir = Path(str(BASE_DIR / story_id))
+        self.output_dir = Path(str(OUT_DIR / story_id))
         self.story_id = story_id
-        # kaki
-        self.upload_dir_to_gcs()
+
         if not os.path.exists(self.output_dir):
             os.makedirs(os.path.join(self.output_dir), exist_ok=True)
 
@@ -81,15 +82,13 @@ class Manager:
         logger.info("STEP 3 - Prepare images")
 
         try:
-            # if DEBUG:
-            #     images_dir = DEMO_DIR / IMAGES_DIR
-            #     self.images = [_ for _ in images_dir.iterdir() if _.is_file()]
             self._fetch_images(story_images)
         except Exception as e:
             logger.error(f"Couldn't fetch story images, failing: {str(e)} -> {traceback.print_exc()}")
             raise InvalidStoryError("Couldn't fetch story images, failing", e)
-        logger.info("STEP 4 - video")
         music_file = self.fetch_random_music()
+
+        logger.info("---Starting to make the video---")
         videomaker = VideoMaker(story_id, self.output_dir, music_file)
         videomaker.make_video()
 
@@ -109,7 +108,7 @@ class Manager:
         if is_captions:
             return {'id': self.story_id, 'video_path': GCS_URL_FORMAT.format(os.path.join(self.story_id, videomaker.video_file_name))}
         else:
-            return {'id': self.story_id, 'video_path': GCS_URL_FORMAT.format(os.path.join(self.story_id/UNCAPTIONED_FILE))}
+            return {'id': self.story_id, 'video_path': GCS_URL_FORMAT.format(os.path.join(self.story_id, UNCAPTIONED_FILE))}
             # TODO
             # return {'id': self.story_id, 'video_path': GCS_URL_FORMAT.format(self.story_id)}
 
@@ -203,22 +202,22 @@ class Manager:
             return None
 
     def _wait_for_captions(self):
-        # 18 attempts of 10 seconds = 6minutes
-        for attempt in range(36):
+        # 6 attempts of 10 seconds = 1 minute
+        for attempt in range(6):
             try:
-                blob = self.data_bucket.blob(str(Path(self.story_id) / SRT_FILE))
+                blob = self.data_bucket.blob(str(Path(self.story_id) / ASS_FILE))
                 if blob.exists():
                     logger.info(f'{self.story_id}: FOUND CAPTIONS')
                     blob_data = blob.download_as_bytes()
 
-                    with open(str(self.output_dir / SRT_FILE), 'wb') as file:
+                    with open(str(self.output_dir / ASS_FILE), 'wb') as file:
                         file.write(blob_data)
 
                     return
             except Exception as e:
                 logger.error(f"Error when trying to download blob data: {str(e)} -> {traceback.print_exc()}")
             time.sleep(10)
-        if not os.path.exists(str(self.output_dir / SRT_FILE)):
+        if not os.path.exists(str(self.output_dir / ASS_FILE)):
             # TODO: originally if not blob
             raise RuntimeError("Couldn't find srt file")
 

@@ -3,13 +3,24 @@
 #
 #  Created by Eldar Eliav on 2023/05/13.
 #
+import datetime
+import logging
 import os
 import random
 import subprocess
 import time
 from asyncio import as_completed
 from concurrent.futures import ThreadPoolExecutor
-from typing import List
+from typing import List, Tuple, Dict
+
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, EVENT_JOB_ADDED, EVENT_JOB_REMOVED
+from apscheduler.jobstores.memory import MemoryJobStore
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.date import DateTrigger
+from kubernetes import client, config
+from kubernetes.stream import stream
+import subprocess
 
 import cv2
 import requests
@@ -18,36 +29,16 @@ from pydantic import BaseModel
 
 from config import SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
     FILE_LIST, TRANSITION_SOUND_EFFECT, LAST_FRAME_PATH, FIRST_FRAME_PATH, IMAGES_DIR, SCENE_FILE_FORMAT, AUDIO_LIBRARY, \
-    VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, SRT_FILE, MUSIC_FILE, \
-    DEBUG, TOONTUBE_LOGO, logger, MINIMUM_SCENES, SCENES_FOLDER, MINIMUM_SCENE_DURATION
+    VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, MUSIC_FILE, \
+    DEBUG, TOONTUBE_LOGO, logger, MINIMUM_SCENES, SCENES_FOLDER, MINIMUM_SCENE_DURATION, ASS_FILE, FRAME_DURATION, \
+    SHARP_CUT_FRAME_DURATION, SCALE_MODES, MAX_VIDEO_DURATION, DEFAULT_TARGET_LOUDNESS
 from pydub import AudioSegment
 import soundfile as sf
 import pyloudnorm as pyln
 from pathlib import Path
 
-from src.pydantic_models.process_ruby import ProcessRubyRequest
-
-# Default target loudness, in decibels
-DEFAULT_TARGET_LOUDNESS = -8
-SCALE_MODES = ['pad', 'pan']
-
-
-# Frame duration per 60 fps = 1 / 60(frames) ≈ 16.67
-FRAME_DURATION = 1 / 60
-SHARP_CUT_FRAME_DURATION = 12
-MAX_VIDEO_DURATION = 40
-
-
-class Slide(BaseModel):
-    index: int
-    scene_path: Path
-    scene_duration: float
-    is_scene_created: bool = False
-    img_path: Path = None
-    transition_path: Path = None
-    transition_duration: float = None
-    first_frame_path: Path = None
-    last_frame_path: Path = None
+from src.scene_creator import SceneCreator
+from src.pydantic_models.slide import Slide, SlideJob
 
 
 class VideoMaker:
@@ -71,59 +62,85 @@ class VideoMaker:
             logger.info(f"Successfully generated slides: {self.slides}")
 
     def make_video(self):
-        self.make_scenes()
-        self.make_transitions()
-        # Adding toontube logo slide
+        scene_creator = SceneCreator(self.output_dir, self.slides)
+        slide_jobs = scene_creator.run()
+        success = sum([1 for sj in slide_jobs.values() if sj.is_success ])
+        results = {'SUCCESS': f'{success}/{len(slide_jobs)}'}
+        logger.info(f"Scene creator finished, these are the results: {results} | {slide_jobs}")
+        scenes, transitions = self._count_produced(slide_jobs)
+        if scenes <= MINIMUM_SCENES:
+            raise RuntimeError(f"Couldn't produce enough scenes, produced {scenes} scenes ({transitions}) transitions | {slide_jobs}")
+
+        self.connect_all()
         self.slides.append(
             Slide(index=len(self.slides),
                   scene_path=TOONTUBE_LOGO,
                   scene_duration=2.0))
-        self.connect_all()
+
+    def _count_produced(self, slide_jobs: Dict[str, SlideJob]):
+        scenes, transitions = 0, 0
+        for slide_job in slide_jobs.values():
+            if slide_job.is_success:
+                if slide_job.is_transition:
+                    transitions += 1
+                else:
+                    scenes += 1
+        return scenes, transitions
 
     def burn_captions(self):
         cmd = [f'ruby', f'{BURN_CAPTIONS}',
                f'--input-file', f'{self.output_dir / UNCAPTIONED_FILE}',
-               f'--srt-file', f'{self.output_dir / SRT_FILE}',
+               f'--srt-file', f'{self.output_dir / ASS_FILE}',
                f'--output_file', f'{self.video_file_path}']
-
+        # TODO: raise error if failure
+        # kaki
         self.run_cmd_and_log(cmd)
 
-    def make_scenes(self):
-        for i, slide in enumerate(self.slides):
-            cmd = [
-                f'ruby', f'{SCENE_MAKER}', f'{slide.img_path}', f'{slide.scene_path}', f'--slide-duration={slide.scene_duration}',
-                f'--zoom-rate=0.1', '--zoom-direction=random', f'--scale-mode={random.choice(SCALE_MODES)}', '-y']
-
-            logger.info(f'ruby command {" ".join(cmd)}')
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.stderr:
-                logger.warning(f"Failed to generate scene {slide}: -> {result.stdout} | {result.stderr}")
-                slide.is_scene_created = False
-            else:
-                slide.is_scene_created = True
-
-        if sum(1 for slide in self.slides if slide.is_scene_created) < MINIMUM_SCENES:
-            raise RuntimeError(f"Failed to create enough scenes, created: {sum(1 for slide in self.slides if slide.is_scene_created)}")
-
-    def make_transitions(self):
-        for i, slide in enumerate(self.slides[0:-1]):
-            last_frame = self.extract_frame(slide, is_last=True)
-            first_frame = self.extract_frame(self.slides[i+1], is_last=False)
-            slide.transition_path = self.output_dir / SHARP_CUT_FILE_FORMAT.format(i, i + 1)
-
-            # This calculation is specifically for sharp cut, other transitions will have to be calculated differently
-            slide.transition_duration = (FRAME_DURATION * SHARP_CUT_FRAME_DURATION)
-            cmd = [f'ruby', f'{SHARP_CUT_MAKER}', f'{last_frame}', f'{first_frame}', f'{slide.transition_path}']
-            self.run_cmd_and_log(cmd)
+    # def make_scenes(self):
+    #     for i, slide in enumerate(self.slides):
+    #         cmd = [
+    #             f'ruby', f'{SCENE_MAKER}', f'{slide.img_path}', f'{slide.scene_path}', f'--slide-duration={slide.scene_duration}',
+    #             f'--zoom-rate=0.1', '--zoom-direction=random', f'--scale-mode={random.choice(SCALE_MODES)}', '-y']
+    #
+    #         slide.command = cmd
+    #
+    #         logger.info(f'ruby command {" ".join(cmd)}')
+    #         result = subprocess.run(cmd, capture_output=True, text=True)
+    #         if result.stderr:
+    #             logger.warning(f"Failed to generate scene {slide}: -> {result.stdout} | {result.stderr}")
+    #             slide.is_scene_created = False
+    #         else:
+    #             slide.is_scene_created = True
+    #
+    #     if sum(1 for slide in self.slides if slide.is_scene_created) < MINIMUM_SCENES:
+    #         raise RuntimeError(f"Failed to create enough scenes, created: {sum(1 for slide in self.slides if slide.is_scene_created)}")
+    #
+    # def make_transitions(self):
+    #     for i, slide in enumerate(self.slides[0:-1]):
+    #         last_frame = self.extract_frame(slide, is_last=True)
+    #         first_frame = self.extract_frame(self.slides[i+1], is_last=False)
+    #         slide.transition_path = self.output_dir / SHARP_CUT_FILE_FORMAT.format(i, i + 1)
+    #
+    #         # This calculation is specifically for sharp cut, other transitions will have to be calculated differently
+    #         slide.transition_duration = (FRAME_DURATION * SHARP_CUT_FRAME_DURATION)
+    #         cmd = [f'ruby', f'{SHARP_CUT_MAKER}', f'{last_frame}', f'{first_frame}', f'{slide.transition_path}']
+    #         slide.command = cmd
+    #         self.run_cmd_and_log(cmd)
 
     @staticmethod
-    def run_cmd_and_log(cmd, verbose=False):
+    def run_cmd_and_log(cmd, verbose=False) -> Tuple[bool, str]:
+        message = ''
+
         logger.info(f'ruby command {" ".join(cmd)}')
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.stderr:
-            logger.warning(f"Command failed: {result.stdout} | {result.stderr}")
+            message = f"Command failed: {result.stdout} | {result.stderr}"
+            logger.warning(message)
+            return False, message
         elif verbose:
-            logger.warning(f"Command output: {result.stdout}")
+            message = f"Command output: {result.stdout}"
+            logger.info(message)
+        return True, message
 
     def connect_all(self):
         # Generate the necessary attributes for the ruby file:
@@ -150,7 +167,9 @@ class VideoMaker:
                f'--transition-sound-effect', f'{TRANSITION_SOUND_EFFECT}',
                f'--output_file', f'{self.output_dir / UNCAPTIONED_FILE}']
 
-        self.run_cmd_and_log(cmd, verbose=True)
+        result = self.run_cmd_and_log(cmd, verbose=True)
+        if result[0] is False:
+            raise RuntimeError(f"Failed to generate a video -> failure in connecting scenes: {result[1]}")
 
     def sharp_cut(self, images):
         images_string = " ".join(images)
@@ -158,47 +177,6 @@ class VideoMaker:
         cmd = [f'ruby', f'{SHARP_CUT_MAKER}', f'{images_string}', f'{transition_file_path}']
 
         self.run_cmd_and_log(cmd)
-
-    def extract_frame(self, slide: Slide, is_last=True):
-        # if not is_last - will extract first frame
-        video_path = slide.scene_path
-        # Capture the video
-        cap = cv2.VideoCapture(str(video_path))
-        # Check if video opened successfully
-        if not cap.isOpened():
-            logger.warning("Error opening video file")
-            return
-        if is_last:
-            image_path = self.output_dir / LAST_FRAME_PATH.format(slide.index)
-
-            # Get the total number of frames in the video
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            frame_index = total_frames - 1
-        else:
-            image_path = self.output_dir / FIRST_FRAME_PATH.format(slide.index)
-            frame_index = 0
-
-        # Set the current frame position to the last frame
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-
-        # Read the last frame
-        ret, frame = cap.read()
-
-        # Check if the frame was captured successfully
-        if ret:
-            # Save the frame as an image
-            cv2.imwrite(str(image_path), frame)
-            if is_last:
-                slide.last_frame_path = image_path
-            else:
-                slide.first_frame_path = image_path
-            return image_path
-        else:
-            logger.warning("Error extracting the last frame")
-
-        # Release the video capture object
-        cap.release()
-        cv2.destroyAllWindows()
 
     def _generate_slides(self):
         # Generating slides with random durations
