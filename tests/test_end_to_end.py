@@ -33,12 +33,12 @@ def test_end_to_end():
     Executor().story_to_video(request)
     assert True
 
-# @pytest.mark.latest
+@pytest.mark.latest
 def test_video_maker():
     story_id = 'tVpqQmQXkzuJqA1wRM'
     output_dir = Path(r'/Users/roihala/PycharmProjects/anime_video_generator/output')
     music_file = Manager(output_dir).fetch_random_music()
     videomaker = VideoMaker(story_id, output_dir / story_id, music_file)
-    videomaker.make_video()
+    videomaker.connect_all()
     assert True
     # videomaker.burn_captions()

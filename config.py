@@ -71,7 +71,8 @@ MINIMUM_SCENE_DURATION = 1.5 # In seconds
 FRAME_DURATION = 1 / 60
 SHARP_CUT_FRAME_DURATION = 12
 MAX_VIDEO_DURATION = 40
-DEFAULT_TARGET_LOUDNESS = -8 # In decibels
+DEFAULT_MUSIC_GAIN = -18 # In decibels
+DEFAULT_NARRATION_GAIN = -10 # In decibels
 SCALE_MODES = ['pad', 'pan']
 
 class CustomLoggerAdapter(logging.LoggerAdapter):

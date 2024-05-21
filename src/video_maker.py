@@ -31,7 +31,7 @@ from config import SCENE_MAKER, SHARP_CUT_FILE_FORMAT, SHARP_CUT_MAKER, \
     FILE_LIST, TRANSITION_SOUND_EFFECT, LAST_FRAME_PATH, FIRST_FRAME_PATH, IMAGES_DIR, SCENE_FILE_FORMAT, AUDIO_LIBRARY, \
     VIDEO_MAKER, NARRATION_FILE, VIDEO_FILE, BURN_CAPTIONS, UNCAPTIONED_FILE, MUSIC_FILE, \
     DEBUG, TOONTUBE_LOGO, logger, MINIMUM_SCENES, SCENES_FOLDER, MINIMUM_SCENE_DURATION, ASS_FILE, FRAME_DURATION, \
-    SHARP_CUT_FRAME_DURATION, SCALE_MODES, MAX_VIDEO_DURATION, DEFAULT_TARGET_LOUDNESS
+    SHARP_CUT_FRAME_DURATION, SCALE_MODES, MAX_VIDEO_DURATION, DEFAULT_MUSIC_GAIN, DEFAULT_NARRATION_GAIN
 from pydub import AudioSegment
 import soundfile as sf
 import pyloudnorm as pyln
@@ -68,7 +68,7 @@ class VideoMaker:
         results = {'SUCCESS': f'{success}/{len(slide_jobs)}'}
         logger.info(f"Scene creator finished, these are the results: {results} | {slide_jobs}")
         scenes, transitions = self._count_produced(slide_jobs)
-        if scenes <= MINIMUM_SCENES:
+        if scenes < MINIMUM_SCENES:
             raise RuntimeError(f"Couldn't produce enough scenes, produced {scenes} scenes ({transitions}) transitions | {slide_jobs}")
 
         self.connect_all()
@@ -156,13 +156,15 @@ class VideoMaker:
                     file.write(f"file '{slide.transition_path}'\n")
                     durations.append(slide.transition_duration)
 
-        volume_adjustment = self._get_background_audio_volume_adjustment(str(self.music_file))
+        narration_volume_adjustment = self._get_volume_adjustment(str(self.narration_file), is_narration=True)
+        music_volume_adjustment = self._get_volume_adjustment(str(self.music_file), is_music=True)
         cmd = [f'ruby',
                f'{VIDEO_MAKER}',
                f'--file_list', f'{self.output_dir / FILE_LIST}',
                f'--durations', f'{",".join([str(_) for _ in durations])}',
                f'--background_music', f'{self.music_file}',
-               f'--music-volume-adjustment', f'{volume_adjustment}',
+               f'--music-volume-adjustment', f'{music_volume_adjustment}',
+               f'--narration-volume-adjustment', f'{narration_volume_adjustment}',
                f'--narration-audio', f'{self.narration_file}',
                f'--transition-sound-effect', f'{TRANSITION_SOUND_EFFECT}',
                f'--output_file', f'{self.output_dir / UNCAPTIONED_FILE}']
@@ -209,11 +211,19 @@ class VideoMaker:
         return audio_object.duration_seconds
 
     @staticmethod
-    def _get_background_audio_volume_adjustment(file_path: str) -> float:
+    def _get_volume_adjustment(file_path: str, is_music=False, is_narration=False) -> float:
         # measure_loudness
         data, rate = sf.read(file_path)  # Read audio file
 
         meter = pyln.Meter(rate)  # create BS.1770 meter
         loudness = meter.integrated_loudness(data)  # measure loudness
-        gain = DEFAULT_TARGET_LOUDNESS - loudness
+
+        logger.info(f"kaki {'music' if is_music else 'narration'} {loudness}db")
+
+        if is_music:
+            gain = DEFAULT_MUSIC_GAIN - loudness
+        elif is_narration:
+            gain = DEFAULT_NARRATION_GAIN - loudness
+        else:
+            raise ValueError("One of is_music or is_narration should be True")
         return gain

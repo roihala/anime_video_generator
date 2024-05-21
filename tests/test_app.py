@@ -11,10 +11,15 @@ toontube_stories = [
         'https://toontube.co/reader/6400809b651f9fc369319f43/653672907b605c94f734f89a?page=1',
         'https://toontube.co/reader/643e7e64318330950c33f4e3/643e83f2318330950c33f4e5?page=1',
         'https://toontube.co/reader/6429646b02cbbf0de9fd236e/64ddd30190bcd1c401311df8?page=1',
-        'https://toontube.co/reader/641e0cc005708b29765e697a/64ddc6b1a6b3a801190a7bca?page=1'
-        'https://toontube.co/reader/64d63d7b9c2e412464643d30/64d643592f2dac342317c413?page=1'
+        'https://toontube.co/reader/641e0cc005708b29765e697a/64ddc6b1a6b3a801190a7bca?page=1',
+        'https://toontube.co/reader/6429646b02cbbf0de9fd236e/64ddd30190bcd1c401311df8?page=1',
+        'https://toontube.co/reader/6429646b02cbbf0de9fd236e/64ddd30190bcd1c401311df8?page=1',
+        'https://toontube.co/reader/641e0cc005708b29765e697a/64ddc6b1a6b3a801190a7bca?page=1',
+        'https://toontube.co/reader/648ac3b80e6df15094ec1ee1/64918f6c966f84c8e5e42332?page=1',
+        'https://toontube.co/reader/6537962a35f2b00dc92199c7/6537968835f2b00dc92199e2?page=1',
+        'https://toontube.co/reader/65c4d8575b61996b390efb0b/65c6612b6463020a82fad303?page=1',
+        'https://toontube.co/reader/66326fa0d960ccba09a67dcc/66327005d960ccba09a67de0?page=1',
         'https://toontube.co/reader/6429646b02cbbf0de9fd236e/64ddd30190bcd1c401311df8?page=1'
-        'https://toontube.co/reader/64d60ebb9c2e4124646429e9/64d60f302f2dac342317a727?page=1'
      ]
 
 def test_app():
@@ -25,7 +30,7 @@ def test_app():
                'voice': get_random_voice()}
     # payload['story_images'] = list(pages)[0:5]
 
-@pytest.mark.latest
+# @pytest.mark.latest
 def test_toontube():
     headers = {"Content-Type": "application/json"}
     payload = {
@@ -46,8 +51,7 @@ def test_toontube():
         except Exception as e:
             logger.warning(f"Couldn't fetch story: {story}")
             logger.error(e)
-        break
-        time.sleep(60)
+        time.sleep(180)
 
 
 def get_random_voice():
