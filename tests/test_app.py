@@ -30,7 +30,7 @@ def test_app():
                'voice': get_random_voice()}
     # payload['story_images'] = list(pages)[0:5]
 
-# @pytest.mark.latest
+@pytest.mark.latest
 def test_toontube():
     headers = {"Content-Type": "application/json"}
     payload = {

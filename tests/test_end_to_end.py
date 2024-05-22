@@ -33,7 +33,7 @@ def test_end_to_end():
     Executor().story_to_video(request)
     assert True
 
-@pytest.mark.latest
+# @pytest.mark.latest
 def test_video_maker():
     story_id = 'tVpqQmQXkzuJqA1wRM'
     output_dir = Path(r'/Users/roihala/PycharmProjects/anime_video_generator/output')

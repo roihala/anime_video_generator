@@ -55,9 +55,12 @@ class Manager:
 
         if len(story_images) < MINIMUM_SCENES:
             raise ValueError(f"Insufficient story images amount: {len(story_images)}")
+        if len(story_images) > MAXIMUM_SCENES:
+            logger.info(f"Got more than {MAXIMUM_SCENES} images, using first {MAXIMUM_SCENES}")
+            story_images = story_images[0:MAXIMUM_SCENES]
 
         logger.info("STEP 1 - script")
-        prompt = ScriptGenerator().generate(prompt)
+        prompt = ScriptGenerator().generate(prompt, len(story_images))
 
         logger.info("STEP 2 - narration")
 
@@ -131,9 +134,6 @@ class Manager:
 
     def _fetch_images(self, story_images):
         for index, image_url in enumerate(story_images):
-            if index == MAXIMUM_SCENES:
-                logger.warning(f"Got more than {MAXIMUM_SCENES} images, using first {MAXIMUM_SCENES}")
-                break
             try:
                 image_type = self._get_image_type(image_url)
 

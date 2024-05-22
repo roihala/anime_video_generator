@@ -155,7 +155,7 @@ ffmpeg_command = [
   'error',
   '-i', with_music_file.path,
   '-i', options[:transition_sound_effect],
-  '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [0:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS[orig_audio]; [1:a]volume=-10dB:eval=frame,asplit=#{num_transitions}#{first_line_str};#{transition_effects_str}; [orig_audio]#{transition_outputs_str}amix=inputs=#{num_transitions + 1}:duration=first:dropout_transition=2[a]",
+  '-filter_complex', "[0:v]trim=duration=#{durations.sum},setpts=PTS-STARTPTS[v0]; [0:a]atrim=duration=#{durations.sum},asetpts=PTS-STARTPTS[orig_audio]; [1:a]volume=-7dB:eval=frame,asplit=#{num_transitions}#{first_line_str};#{transition_effects_str}; [orig_audio]#{transition_outputs_str}amix=inputs=#{num_transitions + 1}:duration=first:dropout_transition=2[a]",
   '-map', '[v0]',
   '-map', '[a]',
   '-y',
